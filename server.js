@@ -10,7 +10,6 @@ app.get('/api/google-widget', async (req, res) => {
   try {
     let allEvents = [];
 
-    // Consulta de eventos de las distintas ligas
     for (const slug of leagues) {
       try {
         const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${hoyStr}`;
@@ -25,12 +24,9 @@ app.get('/api/google-widget', async (req, res) => {
             allEvents = allEvents.concat(data.events);
           }
         }
-      } catch (e) {
-        // Ignora errores puntuales de ligas individuales
-      }
+      } catch (e) {}
     }
 
-    // Fallback a LaLiga si no se encuentran partidos para la fecha actual
     if (allEvents.length === 0) {
       try {
         const urlDef = `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard`;
@@ -43,7 +39,6 @@ app.get('/api/google-widget', async (req, res) => {
       } catch (e) {}
     }
 
-    // Mapeo del listado de partidos del día
     const agenda = allEvents.map(e => {
       const comp = e.competitions?.[0];
       const home = comp?.competitors?.find(c => c.homeAway === 'home');
@@ -71,15 +66,12 @@ app.get('/api/google-widget', async (req, res) => {
         logoVisitante: away?.team?.logo || away?.team?.logos?.[0]?.href || '',
         golesVisitante: away?.score ?? '0',
         estado: estadoTexto,
-        enVivo: state === 'in',
-        rawDate: e.date
+        enVivo: state === 'in'
       };
     });
 
-    // Selección del partido destacado (En vivo -> Reciente -> Primero de la lista)
     const mainEvent = agenda.find(a => a.enVivo) || agenda[0] || null;
 
-    // Obtención de la tabla de posiciones de la liga del partido destacado
     let standings = [];
     if (mainEvent) {
       try {
@@ -127,7 +119,7 @@ app.get('*', (req, res) => {
     .container { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 16px; }
     .card { background: #ffffff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(60,64,67,0.1); border: 1px solid #dadce0; }
 
-    /* Partidos del día desplegable arriba */
+    /* Desplegable superior */
     .top-accordion-btn { width: 100%; background: #ffffff; border: 1px solid #dadce0; padding: 12px 16px; border-radius: 12px; font-weight: 600; font-size: 0.9rem; color: #1a73e8; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
     .top-accordion-btn:hover { background: #f8f9fa; }
     .agenda-dropdown { display: none; margin-top: 8px; max-height: 280px; overflow-y: auto; border: 1px solid #dadce0; border-radius: 12px; background: #fff; }
@@ -139,7 +131,7 @@ app.get('*', (req, res) => {
     .agenda-logo { width: 18px; height: 18px; object-fit: contain; }
     .agenda-status-col { font-size: 0.78rem; font-weight: 600; color: #5f6368; text-align: right; }
 
-    /* Tarjeta Partido Principal */
+    /* Partido principal */
     .league-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .league-name { font-size: 0.85rem; color: #5f6368; font-weight: 500; }
     .live-badge { background: #ea4335; color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; animation: pulse 1.5s infinite; }
@@ -174,11 +166,14 @@ app.get('*', (req, res) => {
     .player-row { font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid #f1f3f4; display: flex; gap: 8px; }
     .player-num { font-weight: 700; color: #70757a; width: 20px; }
 
-    /* Radar / Mapa de calor */
-    .pitch-container { background: #2e7d32; border-radius: 12px; padding: 20px; color: #fff; text-align: center; position: relative; overflow: hidden; }
-    .heatmap-overlay { position: absolute; top: 25%; left: 35%; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,0,0,0.6) 0%, rgba(255,255,0,0.3) 50%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; }
+    /* Mapa de calor interactivo */
+    .pitch-field { width: 100%; height: 220px; background: #2e7d32; border-radius: 12px; border: 2px solid rgba(255,255,255,0.4); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .pitch-line-center { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.4); }
+    .pitch-circle { position: absolute; width: 70px; height: 70px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
+    .heat-zone { position: absolute; border-radius: 50%; filter: blur(12px); opacity: 0.75; transition: all 0.5s ease; }
+    .pitch-legend { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #5f6368; }
 
-    /* Tabla de Posiciones */
+    /* Tabla inferior */
     .table-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     th { color: #70757a; font-weight: 400; padding: 6px; text-align: center; }
@@ -198,9 +193,7 @@ app.get('*', (req, res) => {
         <span>📅 Partidos de Hoy (<span id="count-agenda">0</span>)</span>
         <span id="arrow-icon">▼</span>
       </button>
-      <div class="agenda-dropdown" id="dropdown-agenda">
-        <!-- Generado dinámicamente -->
-      </div>
+      <div class="agenda-dropdown" id="dropdown-agenda"></div>
     </div>
 
     <!-- 2. CARD DE PARTIDO EN VIVO / SELECCIONADO -->
@@ -254,12 +247,17 @@ app.get('*', (req, res) => {
         </div>
       </div>
 
-      <!-- Contenido: Mapa de Calor -->
+      <!-- Contenido: Mapa de calor interactivo -->
       <div id="tab-heatmap" class="tab-content">
-        <div class="pitch-container">
-          <div class="heatmap-overlay"></div>
-          <p style="margin: 30px 0; font-weight:500;">Radar de Intensión y Zonas de Dominio</p>
-          <small style="opacity:0.8;">Mapa térmico simulado en tiempo real</small>
+        <div class="pitch-field" id="pitch-container">
+          <div class="pitch-line-center"></div>
+          <div class="pitch-circle"></div>
+          <div class="heat-zone" id="heat-home" style="width: 120px; height: 120px; background: #1a73e8; left: 20%; top: 20%;"></div>
+          <div class="heat-zone" id="heat-away" style="width: 120px; height: 120px; background: #ea4335; right: 20%; top: 20%;"></div>
+        </div>
+        <div class="pitch-legend">
+          <span id="legend-home" style="color: #1a73e8;">Local: Dominio en mediocampo</span>
+          <span id="legend-away" style="color: #ea4335;">Visitante: Ataque por bandas</span>
         </div>
       </div>
     </div>
@@ -280,9 +278,7 @@ app.get('*', (req, res) => {
             <th>Pts</th>
           </tr>
         </thead>
-        <tbody id="tbody-posiciones">
-          <!-- Renderizado dinámico -->
-        </tbody>
+        <tbody id="tbody-posiciones"></tbody>
       </table>
     </div>
 
@@ -315,7 +311,6 @@ app.get('*', (req, res) => {
         agendaMatches = data.agenda || [];
         document.getElementById('count-agenda').innerText = agendaMatches.length;
 
-        // Render desplegable
         const container = document.getElementById('dropdown-agenda');
         container.innerHTML = agendaMatches.map(item => `
           <div class="agenda-item ${activeMatch && activeMatch.id === item.id ? 'selected' : ''}" onclick="selectMatch('${item.id}')">
@@ -335,12 +330,10 @@ app.get('*', (req, res) => {
           </div>
         `).join('');
 
-        // Seleccionar automáticamente el partido principal si aún no hay uno
         if (!activeMatch && data.mainMatch) {
           selectMatch(data.mainMatch.id);
         }
 
-        // Render Tabla de Posiciones
         const tbody = document.getElementById('tbody-posiciones');
         if (data.standings && data.standings.length) {
           tbody.innerHTML = data.standings.map(s => `
@@ -369,11 +362,9 @@ app.get('*', (req, res) => {
       activeMatch = agendaMatches.find(m => m.id === matchId);
       if (!activeMatch) return;
 
-      // Ocultar desplegable
       document.getElementById('dropdown-agenda').style.display = 'none';
       document.getElementById('arrow-icon').innerText = '▼';
 
-      // Actualizar cabecera de la tarjeta principal
       document.getElementById('lbl-liga').innerText = activeMatch.liga;
       document.getElementById('badge-vivo').style.display = activeMatch.enVivo ? 'inline-block' : 'none';
       document.getElementById('txt-home').innerText = activeMatch.local;
@@ -384,29 +375,33 @@ app.get('*', (req, res) => {
       document.getElementById('num-goles-away').innerText = activeMatch.golesVisitante;
       document.getElementById('txt-tiempo').innerText = activeMatch.estado.replace('🔴 ', '');
 
-      // Consultar estadísticas completas a la API directamente
       try {
         const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${activeMatch.leagueSlug}/summary?event=${activeMatch.id}`;
         const sumRes = await fetch(summaryUrl).then(r => r.ok ? r.json() : null);
 
-        // Estadísticas
-        const statsContainer = document.getElementById('stats-container');
+        let possessionHome = 50;
+        let possessionAway = 50;
+
         if (sumRes && sumRes.boxscore && sumRes.boxscore.teams) {
-          const homeId = sumRes.boxscore.teams[0]?.team?.id;
           const homeStats = sumRes.boxscore.teams[0]?.statistics || [];
           const awayStats = sumRes.boxscore.teams[1]?.statistics || [];
 
           const getStat = (stats, name) => stats.find(s => s.name === name || s.label === name)?.displayValue || '0';
 
+          const posH = parseFloat(getStat(homeStats, 'possessionPct')) || 50;
+          const posA = parseFloat(getStat(awayStats, 'possessionPct')) || 50;
+          possessionHome = posH;
+          possessionAway = posA;
+
           const statsList = [
-            { label: 'Posesión', home: getStat(homeStats, 'possessionPct') + '%', away: getStat(awayStats, 'possessionPct') + '%' },
+            { label: 'Posesión', home: posH + '%', away: posA + '%' },
             { label: 'Tiros al Arco', home: getStat(homeStats, 'shotsOnTarget'), away: getStat(awayStats, 'shotsOnTarget') },
             { label: 'Tiros Totales', home: getStat(homeStats, 'totalShots'), away: getStat(awayStats, 'totalShots') },
             { label: 'Faltas', home: getStat(homeStats, 'foulsCommitted'), away: getStat(awayStats, 'foulsCommitted') },
             { label: 'Tarjetas Amarillas', home: getStat(homeStats, 'yellowCards'), away: getStat(awayStats, 'yellowCards') }
           ];
 
-          statsContainer.innerHTML = statsList.map(s => {
+          document.getElementById('stats-container').innerHTML = statsList.map(s => {
             const hVal = parseFloat(s.home) || 0;
             const aVal = parseFloat(s.away) || 0;
             const total = (hVal + aVal) || 1;
@@ -427,9 +422,22 @@ app.get('*', (req, res) => {
               </div>
             `;
           }).join('');
-        } else {
-          statsContainer.innerHTML = '<p style="text-align:center; color:#70757a; font-size:0.85rem;">Estadísticas en preparación para este encuentro.</p>';
         }
+
+        // Actualizar el Roadmap / Mapa de Calor con base en los datos del partido
+        const heatH = document.getElementById('heat-home');
+        const heatA = document.getElementById('heat-away');
+        
+        const sizeH = Math.min(180, Math.max(70, possessionHome * 2.2));
+        const sizeA = Math.min(180, Math.max(70, possessionAway * 2.2));
+
+        heatH.style.width = `${sizeH}px`;
+        heatH.style.height = `${sizeH}px`;
+        heatA.style.width = `${sizeA}px`;
+        heatA.style.height = `${sizeA}px`;
+
+        document.getElementById('legend-home').innerText = `${activeMatch.local}: ${possessionHome}% Dominio territorial`;
+        document.getElementById('legend-away').innerText = `${activeMatch.visitante}: ${possessionAway}% Dominio territorial`;
 
         // Alineaciones
         if (sumRes && sumRes.rosters) {
@@ -453,7 +461,7 @@ app.get('*', (req, res) => {
     }
 
     loadWidgetData();
-    setInterval(loadWidgetData, 15000); // Recarga automática cada 15 segundos
+    setInterval(loadWidgetData, 15000);
   </script>
 </body>
 </html>`);
