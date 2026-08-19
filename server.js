@@ -38,18 +38,14 @@ app.get('*', (req, res) => {
     .finished-badge { color: #adadb8; font-weight: bold; }
     .click-hint { font-size: 0.7rem; color: #00ff88; font-weight: 600; }
 
-    /* Modal / Pop-up de Estadísticas */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: flex-end; }
-    .modal-content { background: #18181b; width: 100%; max-width: 480px; max-height: 85vh; border-radius: 20px 20px 0 0; padding: 20px; overflow-y: auto; border-top: 2px solid #00ff88; box-shadow: 0 -5px 25px rgba(0,0,0,0.5); position: relative; animation: slideUp 0.25s ease-out; }
-    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    /* Modal centrado en pantalla */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+    .modal-content { background: #18181b; width: 100%; max-width: 440px; max-height: 80vh; border-radius: 16px; padding: 20px; overflow-y: auto; border: 1px solid #00ff88; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; }
     
-    .close-btn { position: absolute; top: 15px; right: 20px; background: #2f2f35; color: #fff; border: none; width: 30px; height: 30px; border-radius: 50%; font-weight: bold; cursor: pointer; }
-    .modal-header { text-align: center; margin-bottom: 20px; }
+    .close-btn { position: absolute; top: 12px; right: 15px; background: #2f2f35; color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; }
+    .modal-header { text-align: center; margin-bottom: 15px; }
     
-    .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; font-size: 0.85rem; border-bottom: 1px solid #26262c; padding-bottom: 6px; }
-    .stat-bar-container { width: 100%; background: #2f2f35; height: 6px; border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px; }
-    .stat-bar-home { background: #00ff88; height: 100%; }
-    .stat-bar-away { background: #ff0055; height: 100%; }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 0.85rem; border-bottom: 1px solid #26262c; padding-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -61,7 +57,6 @@ app.get('*', (req, res) => {
     <div id="matches-container">Consultando partidos...</div>
   </div>
 
-  <!-- Contenedor Modal de Estadísticas -->
   <div id="stats-modal" class="modal-overlay" onclick="cerrarModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="close-btn" onclick="cerrarModalDirecto()">✕</button>
@@ -194,15 +189,15 @@ app.get('*', (req, res) => {
       }).join('');
     }
 
-    // Cargar Estadísticas Detalladas al hacer clic en un partido
     async function abrirEstadisticas(matchId) {
       const modal = document.getElementById('stats-modal');
       const modalBody = document.getElementById('modal-body');
       modal.style.display = 'flex';
-      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando estadísticas e incidencias...</p>';
+      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando detalles e incidencias...</p>';
 
       try {
         const res = await fetch(\`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=\${matchId}\`);
+        if (!res.ok) throw new Error('Api error');
         const json = await res.json();
 
         const boxscore = json.boxscore;
@@ -210,7 +205,7 @@ app.get('*', (req, res) => {
         const comp = header && header.competitions ? header.competitions[0] : null;
 
         if (!comp) {
-          modalBody.innerHTML = '<p style="text-align:center; color:#aaa;">Estadísticas detalladas aún no disponibles para este partido.</p>';
+          modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">Detalles no disponibles temporalmente.</p>';
           return;
         }
 
@@ -219,49 +214,59 @@ app.get('*', (req, res) => {
 
         let htmlStats = \`
           <div class="modal-header">
-            <h3 style="margin:0 0 10px 0; font-size:1.1rem; color:#00ff88;">\${header.league ? header.league.name : 'Estadísticas del Encuentro'}</h3>
+            <h3 style="margin:0 0 10px 0; font-size:1rem; color:#00ff88;">\${header.league ? header.league.name : 'Estadísticas'}</h3>
             <div style="display:flex; justify-content:space-around; align-items:center; margin-top:10px;">
-              <div style="text-align:center;">
-                <img src="\${home.team.logo}" style="width:40px; height:40px;" onerror="this.style.display='none'">
-                <div style="font-weight:bold; font-size:0.9rem; margin-top:4px;">\${home.team.shortDisplayName || home.team.name}</div>
+              <div style="text-align:center; width:35%;">
+                <img src="\${home.team.logo}" style="width:36px; height:36px; object-fit:contain;" onerror="this.style.display='none'">
+                <div style="font-weight:bold; font-size:0.85rem; margin-top:4px;">\${home.team.shortDisplayName || home.team.name}</div>
               </div>
-              <div style="font-size:1.8rem; font-weight:bold; color:#fff;">\${home.score || '0'} - \${away.score || '0'}</div>
-              <div style="text-align:center;">
-                <img src="\${away.team.logo}" style="width:40px; height:40px;" onerror="this.style.display='none'">
-                <div style="font-weight:bold; font-size:0.9rem; margin-top:4px;">\${away.team.shortDisplayName || away.team.name}</div>
+              <div style="font-size:1.6rem; font-weight:bold; color:#fff;">\${home.score !== undefined ? home.score : '-'} - \${away.score !== undefined ? away.score : '-'}</div>
+              <div style="text-align:center; width:35%;">
+                <img src="\${away.team.logo}" style="width:36px; height:36px; object-fit:contain;" onerror="this.style.display='none'">
+                <div style="font-weight:bold; font-size:0.85rem; margin-top:4px;">\${away.team.shortDisplayName || away.team.name}</div>
               </div>
             </div>
           </div>
         \`;
 
-        // Renderizar Métricas si están disponibles
-        if (boxscore && boxscore.teams) {
+        // Renderizado blindado de métricas
+        let tieneMetricas = false;
+
+        if (boxscore && Array.isArray(boxscore.teams) && boxscore.teams.length >= 2) {
           const statsHome = boxscore.teams[0].statistics || [];
           const statsAway = boxscore.teams[1].statistics || [];
 
-          htmlStats += '<h4 style="color:#00ff88; margin: 15px 0 10px 0; border-bottom:1px solid #2f2f35; padding-bottom:5px;">📊 Estadísticas Generales</h4>';
+          if (statsHome.length > 0) {
+            tieneMetricas = true;
+            htmlStats += '<h4 style="color:#00ff88; margin: 15px 0 10px 0; border-bottom:1px solid #2f2f35; padding-bottom:5px; font-size:0.85rem;">📊 Métricas del Partido</h4>';
 
-          statsHome.forEach((st, idx) => {
-            const valHome = st.displayValue || '0';
-            const valAway = statsAway[idx] ? statsAway[idx].displayValue : '0';
+            statsHome.forEach((st, idx) => {
+              const valHome = st.displayValue || '0';
+              const valAway = statsAway[idx] ? statsAway[idx].displayValue : '0';
 
-            htmlStats += \`
-              <div style="margin-bottom: 12px;">
-                <div class="stat-row" style="border:none; margin:0; padding:0;">
+              htmlStats += \`
+                <div class="stat-row">
                   <strong style="color:#00ff88;">\${valHome}</strong>
-                  <span style="color:#aaa;">\${st.label}</span>
+                  <span style="color:#aaa; font-size:0.8rem;">\${st.label}</span>
                   <strong style="color:#ff0055;">\${valAway}</strong>
                 </div>
-              </div>
-            \`;
-          });
-        } else {
-          htmlStats += '<p style="text-align:center; color:#aaa; font-size:0.85rem; padding:15px 0;">Las métricas de tiros y posesión estarán disponibles una vez iniciado el juego.</p>';
+              \`;
+            });
+          }
+        }
+
+        if (!tieneMetricas) {
+          htmlStats += \`
+            <div style="text-align:center; padding:20px 10px; color:#aaa; font-size:0.85rem; background:#121214; border-radius:10px; margin-top:10px;">
+              <p style="margin:0 0 6px 0; font-weight:bold; color:#ffcc00;">⏳ Sin métricas registradas</p>
+              <span>Las estadísticas detalladas (posesión, tiros, faltas) se publicarán de forma automática apenas comience la transmisión oficial del encuentro.</span>
+            </div>
+          \`;
         }
 
         modalBody.innerHTML = htmlStats;
       } catch (err) {
-        modalBody.innerHTML = '<p style="text-align:center; color:#aaa;">No se pudieron cargar las estadísticas completas en este momento.</p>';
+        modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">No hay estadísticas en tiempo real registradas para este partido previo a su inicio.</p>';
       }
     }
 
