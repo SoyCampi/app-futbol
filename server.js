@@ -1,53 +1,71 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const WebSocket = require('ws');
 const path = require('path');
-const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Servir archivos estáticos de la carpeta public
+// Servir archivos estáticos desde public y raíz
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
-// Ruta principal para evitar el error 404 / Not Found
+// Ruta principal para servir index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) {
+      res.sendFile(path.join(__dirname, 'index.html'));
+    }
+  });
 });
 
 const API_KEY = 'c617284c9amsh85e0674d8d84794p15d8adjsn647e0bdfdb55';
 
-async function obtenerPartido() {
-  try {
-    const res = await axios.get('https://thesportsdb.p.rapidapi.com/livescore.php', {
-      params: { s: 'Soccer' },
+function obtenerPartido() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'thesportsdb.p.rapidapi.com',
+      path: '/livescore.php?s=Soccer',
+      method: 'GET',
       headers: {
         'x-rapidapi-key': API_KEY,
         'x-rapidapi-host': 'thesportsdb.p.rapidapi.com'
       }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.events && json.events.length > 0) {
+            const p = json.events[0];
+            return resolve({
+              teamA: p.strHomeTeam || 'Local',
+              teamB: p.strAwayTeam || 'Visitante',
+              scoreA: parseInt(p.intHomeScore) || 0,
+              scoreB: parseInt(p.intAwayScore) || 0,
+              possessionA: 52,
+              possessionB: 48,
+              shotsA: 6,
+              shotsB: 4,
+              minute: parseInt(p.strProgress) || 10
+            });
+          }
+        } catch (e) {}
+        resolve(datosBackup());
+      });
     });
 
-    const partidos = res.data?.events;
-    if (partidos && partidos.length > 0) {
-      const p = partidos[0];
-      return {
-        teamA: p.strHomeTeam || 'Local',
-        teamB: p.strAwayTeam || 'Visitante',
-        scoreA: parseInt(p.intHomeScore) || 0,
-        scoreB: parseInt(p.intAwayScore) || 0,
-        possessionA: 52,
-        possessionB: 48,
-        shotsA: 6,
-        shotsB: 4,
-        minute: parseInt(p.strProgress) || 10
-      };
-    }
-  } catch (err) {
-    console.error('Error consultando API:', err.message);
-  }
-  
-  // Estado de respaldo por si la API no devuelve partidos en este instante
+    req.on('error', () => resolve(datosBackup()));
+    req.end();
+  });
+}
+
+function datosBackup() {
   return {
     teamA: 'Racing Club',
     teamB: 'Belgrano',
@@ -61,15 +79,12 @@ async function obtenerPartido() {
   };
 }
 
-// Enviar datos por WebSocket cada 10 segundos
 setInterval(async () => {
   const match = await obtenerPartido();
-  if (match) {
-    const data = JSON.stringify(match);
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) client.send(data);
-    });
-  }
+  const payload = JSON.stringify(match);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
+  });
 }, 10000);
 
 const PORT = process.env.PORT || 3000;
