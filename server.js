@@ -9,7 +9,7 @@ const wss = new WebSocket.Server({ server });
 
 const API_KEY = 'c617284c9amsh85e0674d8d84794p15d8adjsn647e0bdfdb55';
 
-// HTML/JS embebido con vista de Lista + Detalle de Partido
+// Interfaz web optimizada con Home (Lista) + Detalle
 const HTML_APP = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,42 +17,59 @@ const HTML_APP = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partidos en Vivo</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
-    .container { max-width: 450px; margin: 0 auto; }
-    h2 { text-align: center; font-size: 1.4rem; color: #00ff88; margin-bottom: 20px; }
-    .match-card { background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 12px; cursor: pointer; border: 1px solid #333; transition: transform 0.2s; }
-    .match-card:hover { transform: scale(1.02); border-color: #00ff88; }
-    .teams { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; }
-    .score { color: #00ff88; font-size: 1.3rem; }
-    .time { font-size: 0.8rem; color: #ff0055; font-weight: bold; margin-top: 5px; }
-    .btn-back { background: #333; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
-    .detail-card { background: #1e1e1e; padding: 20px; border-radius: 16px; text-align: center; }
-    .stats { text-align: left; margin-top: 20px; color: #ccc; line-height: 1.8; }
-    .hidden { display: none; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
+    .container { max-width: 420px; margin: 0 auto; }
+    h2 { text-align: center; font-size: 1.3rem; color: #00ff88; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .pulse { width: 10px; height: 10px; background: #ff0055; border-radius: 50%; display: inline-block; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    
+    .match-card { background: #1e1e1e; padding: 16px; border-radius: 14px; margin-bottom: 12px; cursor: pointer; border: 1px solid #2a2a2a; transition: all 0.2s ease; }
+    .match-card:active { transform: scale(0.98); background: #252525; }
+    .match-card:hover { border-color: #00ff88; }
+    
+    .teams { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1rem; }
+    .team-name { width: 40%; }
+    .team-left { text-align: left; }
+    .team-right { text-align: right; }
+    .score { color: #00ff88; font-size: 1.2rem; font-weight: 800; background: #121212; padding: 4px 10px; border-radius: 8px; }
+    .time-badge { font-size: 0.75rem; color: #ff0055; font-weight: bold; margin-top: 8px; text-align: center; }
+
+    .btn-back { background: #2a2a2a; color: #fff; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; margin-bottom: 15px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
+    .detail-card { background: #1e1e1e; padding: 20px; border-radius: 18px; text-align: center; border: 1px solid #2a2a2a; }
+    .stats-grid { text-align: left; margin-top: 20px; color: #ddd; font-size: 0.95rem; line-height: 2; }
+    .stat-row { display: flex; justify-content: space-between; border-bottom: 1px solid #2a2a2a; padding: 6px 0; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- VISTA 1: LISTADO DE PARTIDOS -->
+    <!-- VISTA 1: HOME CON LISTA DE PARTIDOS EN VIVO -->
     <div id="view-list">
-      <h2>🔴 Partidos en Vivo</h2>
-      <div id="matches-container">Cargando partidos en vivo...</div>
+      <h2><span class="pulse"></span> Partidos en Vivo</h2>
+      <div id="matches-container">Cargando partidos en tiempo real...</div>
     </div>
 
-    <!-- VISTA 2: ESTADÍSTICAS DEL PARTIDO SELECCIONADO -->
+    <!-- VISTA 2: ESTADÍSTICAS DETALLADAS DEL PARTIDO -->
     <div id="view-detail" class="hidden">
-      <button class="btn-back" onclick="mostrarLista()">← Volver a la lista</button>
+      <button class="btn-back" onclick="mostrarLista()">← Volver al listado</button>
       <div class="detail-card">
-        <span class="time">EN VIVO <span id="det-minuto">--</span>'</span>
-        <div class="teams" style="margin: 20px 0; font-size: 1.4rem;">
-          <span id="det-teamA">--</span>
-          <span class="score"><span id="det-scoreA">0</span> - <span id="det-scoreB">0</span></span>
-          <span id="det-teamB">--</span>
+        <div class="time-badge" style="font-size: 0.85rem; margin-bottom: 10px;">
+          EN VIVO <span id="det-minuto">--</span>'
         </div>
-        <hr style="border-color: #333;">
-        <div class="stats">
-          <p>⚽ Posesión: <b id="det-posA">50</b>% / <b id="det-posB">50</b>%</p>
-          <p>🎯 Tiros al arco: <b id="det-shotsA">0</b> / <b id="det-shotsB">0</b></p>
+        <div class="teams" style="font-size: 1.2rem; margin: 15px 0;">
+          <span id="det-teamA" class="team-name team-left">--</span>
+          <span class="score" style="font-size: 1.5rem;"><span id="det-scoreA">0</span> - <span id="det-scoreB">0</span></span>
+          <span id="det-teamB" class="team-name team-right">--</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-row">
+            <span>⚽ Posesión</span>
+            <b><span id="det-posA">50</span>% / <span id="det-posB">50</span>%</b>
+          </div>
+          <div class="stat-row">
+            <span>🎯 Tiros al arco</span>
+            <b><span id="det-shotsA">0</span> / <span id="det-shotsB">0</span></b>
+          </div>
         </div>
       </div>
     </div>
@@ -77,17 +94,17 @@ const HTML_APP = `<!DOCTYPE html>
     function renderizarLista(partidos) {
       const container = document.getElementById('matches-container');
       if (!partidos || partidos.length === 0) {
-        container.innerHTML = '<p style="text-align:center;">No hay partidos en directo en este momento.</p>';
+        container.innerHTML = '<p style="text-align:center; color:#888;">No hay partidos en directo en este momento.</p>';
         return;
       }
       container.innerHTML = partidos.map(p => \`
         <div class="match-card" onclick="verDetalle('\${p.id}')">
           <div class="teams">
-            <span>\${p.teamA}</span>
+            <span class="team-name team-left">\${p.teamA}</span>
             <span class="score">\${p.scoreA} - \${p.scoreB}</span>
-            <span>\${p.teamB}</span>
+            <span class="team-name team-right">\${p.teamB}</span>
           </div>
-          <div class="time">Minuto \${p.minute}'</div>
+          <div class="time-badge">Minuto \${p.minute}'</div>
         </div>
       \`).join('');
     }
@@ -145,7 +162,7 @@ function obtenerPartidos() {
           const json = JSON.parse(data);
           if (json.events && json.events.length > 0) {
             const partidos = json.events.map((p, idx) => ({
-              id: p.idEvent || String(idx + 1),
+              id: String(p.idEvent || idx + 1),
               teamA: p.strHomeTeam || 'Local',
               teamB: p.strAwayTeam || 'Visitante',
               scoreA: parseInt(p.intHomeScore) || 0,
@@ -185,4 +202,4 @@ setInterval(async () => {
 }, 10000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
