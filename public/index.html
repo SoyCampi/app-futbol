@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estadísticas en Vivo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans p-4">
+  
+  <div class="max-w-md mx-auto bg-gray-800 rounded-xl p-4 shadow-lg mb-4 text-center">
+    <div class="text-xs text-red-500 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+      <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span> EN VIVO - Minuto <span id="minute">0</span>'
+    </div>
+    <div class="flex justify-between items-center my-4">
+      <div class="w-1/3 text-center">
+        <h2 id="teamA" class="font-bold text-lg">Local</h2>
+        <p id="scoreA" class="text-4xl font-extrabold text-blue-400">0</p>
+      </div>
+      <div class="text-gray-500 font-bold text-xl">VS</div>
+      <div class="w-1/3 text-center">
+        <h2 id="teamB" class="font-bold text-lg">Visitante</h2>
+        <p id="scoreB" class="text-4xl font-extrabold text-red-400">0</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-md mx-auto bg-gray-800 rounded-xl p-4 shadow-lg mb-4">
+    <h3 class="text-sm font-semibold text-gray-400 mb-2">Remates Totales</h3>
+    <div class="flex justify-between font-bold text-lg mb-1">
+      <span id="shotsA" class="text-blue-400">0</span>
+      <span id="shotsB" class="text-red-400">0</span>
+    </div>
+  </div>
+
+  <div class="max-w-md mx-auto bg-gray-800 rounded-xl p-4 shadow-lg">
+    <h3 class="text-sm font-semibold text-gray-400 mb-2 text-center">Posesión de Balón (%)</h3>
+    <div class="w-48 mx-auto">
+      <canvas id="possessionChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('possessionChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Local', 'Visitante'],
+        datasets: [{
+          data: [50, 50],
+          backgroundColor: ['#60A5FA', '#F87171'],
+          borderWidth: 0
+        }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      document.getElementById('teamA').innerText = data.teamA;
+      document.getElementById('teamB').innerText = data.teamB;
+      document.getElementById('scoreA').innerText = data.scoreA;
+      document.getElementById('scoreB').innerText = data.scoreB;
+      document.getElementById('minute').innerText = data.minute;
+      document.getElementById('shotsA').innerText = data.shotsA;
+      document.getElementById('shotsB').innerText = data.shotsB;
+
+      chart.data.datasets[0].data = [data.possessionA, data.possessionB];
+      chart.update();
+    };
+  </script>
+</body>
+</html>
