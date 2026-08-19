@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process process.env.PORT || 3000;
 
 app.get('*', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -49,7 +49,7 @@ app.get('*', (req, res) => {
     .tab-btn.active { color: #00ff88; border-bottom-color: #00ff88; }
 
     /* Cancha Táctica */
-    .pitch { position: relative; width: 100%; height: 350px; background: #17381d; border: 2px solid #2e5c33; border-radius: 12px; overflow: hidden; margin: 10px 0; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0; }
+    .pitch { position: relative; width: 100%; height: 360px; background: #17381d; border: 2px solid #2e5c33; border-radius: 12px; overflow: hidden; margin: 10px 0; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0; }
     .pitch-line-center { position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.25); top: 50%; }
     .pitch-circle { position: absolute; width: 70px; height: 70px; border: 1px solid rgba(255,255,255,0.25); border-radius: 50%; top: calc(50% - 35px); left: calc(50% - 35px); }
     
@@ -59,7 +59,7 @@ app.get('*', (req, res) => {
     .player-node { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.15s; position: relative; }
     .player-node:hover { transform: scale(1.15); }
     
-    .player-avatar-box { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; background: #222; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.6); position: relative; }
+    .player-avatar-box { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; background: #222; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.6); position: relative; }
     .player-avatar-box img { width: 100%; height: 100%; object-fit: cover; }
     
     .player-shirt-badge { position: absolute; bottom: -2px; right: -4px; width: 14px; height: 14px; border-radius: 50%; font-size: 0.55rem; font-weight: bold; color: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; }
@@ -69,12 +69,16 @@ app.get('*', (req, res) => {
     .card-yellow { background: #ffcc00; }
     .card-red { background: #ff0055; }
 
-    /* Card de Jugador Individual */
-    .player-card-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 88%; background: #222226; border: 1px solid #00ff88; border-radius: 12px; padding: 15px; z-index: 1100; box-shadow: 0 8px 25px rgba(0,0,0,0.9); }
-    .player-card-header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
-    .player-card-photo { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #00ff88; object-fit: cover; background: #111; }
+    /* Card de Jugador Individual con Foto */
+    .player-card-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 88%; background: #1c1c20; border: 1px solid #00ff88; border-radius: 14px; padding: 16px; z-index: 1100; box-shadow: 0 10px 30px rgba(0,0,0,0.95); }
+    .player-card-header { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #2f2f35; padding-bottom: 12px; margin-bottom: 12px; }
+    
+    .player-photo-container { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+    .player-card-photo { width: 56px; height: 56px; border-radius: 50%; border: 2px solid #00ff88; object-fit: cover; background: #2f2f35; }
+    .player-jersey-badge { position: absolute; bottom: -2px; right: -4px; padding: 2px 6px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; color: #fff; border: 1px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; }
-    .stat-item { background: #18181b; padding: 6px 10px; border-radius: 6px; border: 1px solid #2f2f35; }
+    .stat-item { background: #121214; padding: 8px 10px; border-radius: 8px; border: 1px solid #26262c; }
   </style>
 </head>
 <body>
@@ -99,9 +103,9 @@ app.get('*', (req, res) => {
       <div id="modal-body-general">Cargando...</div>
       <div id="modal-body-lineups" style="display:none;">Cargando formaciones...</div>
 
-      <!-- Card Flotante de Jugador -->
+      <!-- Card Flotante con Foto del Jugador -->
       <div id="player-card" class="player-card-modal">
-        <button style="position:absolute; right:10px; top:10px; background:none; border:none; color:#aaa; cursor:pointer;" onclick="cerrarPlayerCard()">✕</button>
+        <button style="position:absolute; right:10px; top:10px; background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer;" onclick="cerrarPlayerCard()">✕</button>
         <div id="player-card-content"></div>
       </div>
     </div>
@@ -276,7 +280,7 @@ app.get('*', (req, res) => {
         document.getElementById('modal-body-lineups').innerHTML = \`
           <div style="text-align:center; padding:30px 10px; color:#aaa;">
             <p style="color:#ffcc00; font-weight:bold;">⏳ Formaciones Aún No Confirmadas</p>
-            <p style="font-size:0.8rem;">Las alineaciones oficiales se publican 45 minutos antes del comienzo del partido.</p>
+            <p style="font-size:0.8rem;">Las alineaciones oficiales se publican 45 minutos antes del partido.</p>
           </div>
         \`;
         return;
@@ -285,7 +289,6 @@ app.get('*', (req, res) => {
       const homeRoster = rosters[0];
       const awayRoster = rosters[1];
 
-      // Detectar color de camiseta de cada equipo
       const colorHome = homeRoster.team?.color ? '#' + homeRoster.team.color : '#00ff88';
       const colorAway = awayRoster.team?.color ? '#' + awayRoster.team.color : '#ff0055';
 
@@ -299,21 +302,21 @@ app.get('*', (req, res) => {
           
           <!-- LOCAL -->
           <div class="team-pitch-half">
-            \${generarCanchaJugadores(homeRoster.roster, true, colorHome, homeRoster.team?.displayName || 'Local')}
+            \${generarCanchaJugadores(homeRoster.roster, true, colorHome, homeRoster.team?.displayName || 'Local', homeRoster.team?.logo || '')}
           </div>
           
           <!-- VISITANTE -->
           <div class="team-pitch-half" style="transform: rotate(180deg);">
-            \${generarCanchaJugadores(awayRoster.roster, false, colorAway, awayRoster.team?.displayName || 'Visitante')}
+            \${generarCanchaJugadores(awayRoster.roster, false, colorAway, awayRoster.team?.displayName || 'Visitante', awayRoster.team?.logo || '')}
           </div>
         </div>
-        <p style="text-align:center; font-size:0.7rem; color:#00ff88; margin-top:4px;">💡 Tocá un jugador para ver sus estadísticas individuales</p>
+        <p style="text-align:center; font-size:0.7rem; color:#00ff88; margin-top:4px;">💡 Tocá un jugador para ver su tarjeta de rendimiento</p>
       \`;
 
       document.getElementById('modal-body-lineups').innerHTML = html;
     }
 
-    function generarCanchaJugadores(rosterList, isHome, colorCamiseta, nombreEquipo) {
+    function generarCanchaJugadores(rosterList, isHome, colorCamiseta, nombreEquipo, logoEquipo) {
       if (!rosterList) return '';
       const starters = rosterList.filter(p => p.starter).slice(0, 11);
       
@@ -333,7 +336,9 @@ app.get('*', (req, res) => {
             const ath = p.athlete || {};
             const num = ath.jersey || '?';
             const name = ath.shortName || ath.displayName || 'Jugador';
-            const fotoUrl = ath.headshot?.href || fallbackAvatar;
+            
+            // Construir URL de la foto oficial
+            const fotoUrl = ath.headshot?.href || (ath.id ? \`https://a.espncdn.com/i/headshots/soccer/players/full/\${ath.id}.png\` : fallbackAvatar);
             
             let cardHtml = '';
             if (p.yellowCards) cardHtml = '<div class="card-badge card-yellow"></div>';
@@ -345,6 +350,7 @@ app.get('*', (req, res) => {
               jersey: num,
               foto: fotoUrl,
               equipo: nombreEquipo,
+              logoEquipo: logoEquipo,
               color: colorCamiseta,
               stats: p.stats || []
             }).replace(/"/g, '&quot;');
@@ -368,7 +374,7 @@ app.get('*', (req, res) => {
       const card = document.getElementById('player-card');
       const content = document.getElementById('player-card-content');
       
-      let statsListHtml = '<p style="color:#aaa; font-size:0.8rem;">Sin estadísticas registradas en este partido.</p>';
+      let statsListHtml = '<p style="color:#aaa; font-size:0.8rem; text-align:center; padding:10px 0;">Sin estadísticas registradas aún en el partido.</p>';
       if (p.stats && p.stats.length > 0) {
         statsListHtml = \`
           <div class="stat-grid">
@@ -384,13 +390,16 @@ app.get('*', (req, res) => {
 
       content.innerHTML = \`
         <div class="player-card-header">
-          <img src="\${p.foto}" class="player-card-photo" onerror="this.src='https://a.espncdn.com/i/headshots/nophoto.png'" alt="">
-          <div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="background:\${p.color}; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">#\${p.jersey}</span>
-              <h4 style="margin:0; font-size:0.95rem; color:#fff;">\${p.name}</h4>
+          <div class="player-photo-container">
+            <img src="\${p.foto}" class="player-card-photo" onerror="this.src='https://a.espncdn.com/i/headshots/nophoto.png'" alt="">
+            <div class="player-jersey-badge" style="background:\${p.color};">#\${p.jersey}</div>
+          </div>
+          <div style="flex-grow:1;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <h4 style="margin:0; font-size:1rem; color:#fff;">\${p.name}</h4>
+              \${p.logoEquipo ? \`<img src="\${p.logoEquipo}" style="width:20px; height:20px; object-fit:contain;" alt="">\` : ''}
             </div>
-            <span style="font-size:0.75rem; color:#aaa;">\${p.equipo}</span>
+            <span style="font-size:0.75rem; color:#00ff88; font-weight:600;">\${p.equipo}</span>
           </div>
         </div>
         \${statsListHtml}
