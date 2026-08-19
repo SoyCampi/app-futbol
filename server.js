@@ -70,7 +70,7 @@ app.get('*', (req, res) => {
     .player-shirt-badge { position: absolute; bottom: -2px; right: -4px; width: 15px; height: 15px; border-radius: 50%; font-size: 0.6rem; font-weight: bold; color: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; }
     .player-name { font-size: 0.65rem; color: #202124; font-weight: 500; background: rgba(255,255,255,0.85); padding: 1px 4px; border-radius: 4px; white-space: nowrap; max-width: 65px; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-    /* Tarjeta Flotante de Jugador (Estilo Pop-over) */
+    /* Tarjeta Flotante de Jugador */
     .player-card-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; background: #ffffff; border: 1px solid #dadce0; border-radius: 16px; padding: 16px; z-index: 1100; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
     .player-card-header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f1f3f4; padding-bottom: 10px; margin-bottom: 12px; }
     .player-photo-container { position: relative; width: 54px; height: 54px; flex-shrink: 0; }
