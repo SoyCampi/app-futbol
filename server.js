@@ -18,7 +18,7 @@ function formatearHoraArgentina(utcDateStr) {
   }
 }
 
-function consultarESPN(url) {
+function consultarEndpoint(url) {
   return new Promise((resolve) => {
     https.get(url, (res) => {
       let data = '';
@@ -44,21 +44,25 @@ async function obtenerAgendaHoy() {
     timeZone: 'America/Argentina/Buenos_Aires'
   });
 
-  // Endpoints públicos oficiales de ESPN (Agenda de Fútbol)
-  const urls = [
-    `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${hoyStr}`,
-    `https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?dates=${hoyStr}`
+  // Consultar directamente las ligas más importantes sin restricciones
+  const ligasEndpoints = [
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${hoyStr}`, // Argentina
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${hoyStr}`, // Libertadores
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${hoyStr}`, // Sudamericana
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${hoyStr}`, // Champions
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${hoyStr}`, // Premier
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?dates=${hoyStr}` // Global
   ];
 
-  const resultados = await Promise.all(urls.map(consultarESPN));
+  const resultados = await Promise.all(ligasEndpoints.map(consultarEndpoint));
   const partidosMap = new Map();
 
   resultados.forEach(json => {
-    if (json && json.events && json.events.length > 0) {
-      const nombreLigaGlobal = json.leagues && json.leagues[0] ? json.leagues[0].name : 'Fútbol Profesional';
+    if (json && json.events && Array.isArray(json.events)) {
+      const nombreLigaGlobal = (json.leagues && json.leagues[0]) ? json.leagues[0].name : 'Fútbol Profesional';
       
       json.events.forEach(item => {
-        if (partidosMap.has(item.id)) return;
+        if (!item || partidosMap.has(item.id)) return;
 
         const comp = item.competitions && item.competitions[0];
         if (!comp) return;
@@ -66,24 +70,26 @@ async function obtenerAgendaHoy() {
         const homeTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'home') : null;
         const awayTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'away') : null;
 
-        const statusState = item.status && item.status.type ? item.status.type.state : 'pre';
+        if (!homeTeam || !awayTeam) return;
+
+        const statusState = (item.status && item.status.type) ? item.status.type.state : 'pre';
         const enVivo = statusState === 'in';
         const finalizado = statusState === 'post';
         const horaLocal = formatearHoraArgentina(item.date);
 
         partidosMap.set(item.id, {
           id: item.id,
-          liga: json.leagues && json.leagues[0] ? json.leagues[0].name : nombreLigaGlobal,
-          local: homeTeam && homeTeam.team ? homeTeam.team.shortDisplayName || homeTeam.team.displayName : 'Local',
-          logoLocal: homeTeam && homeTeam.team ? homeTeam.team.logo || '' : '',
-          visitante: awayTeam && awayTeam.team ? awayTeam.team.shortDisplayName || awayTeam.team.displayName : 'Visitante',
-          logoVisitante: awayTeam && awayTeam.team ? awayTeam.team.logo || '' : '',
-          golesLocal: homeTeam && homeTeam.score !== undefined ? homeTeam.score : '-',
-          golesVisitante: awayTeam && awayTeam.score !== undefined ? awayTeam.score : '-',
+          liga: (json.leagues && json.leagues[0]) ? json.leagues[0].name : nombreLigaGlobal,
+          local: homeTeam.team ? (homeTeam.team.shortDisplayName || homeTeam.team.name) : 'Local',
+          logoLocal: homeTeam.team ? homeTeam.team.logo : '',
+          visitante: awayTeam.team ? (awayTeam.team.shortDisplayName || awayTeam.team.name) : 'Visitante',
+          logoVisitante: awayTeam.team ? awayTeam.team.logo : '',
+          golesLocal: (homeTeam.score !== undefined && homeTeam.score !== null) ? homeTeam.score : '-',
+          golesVisitante: (awayTeam.score !== undefined && awayTeam.score !== null) ? awayTeam.score : '-',
           hora: horaLocal,
           enVivo: enVivo,
           finalizado: finalizado,
-          minuto: item.status && item.status.displayClock ? item.status.displayClock + "'" : null,
+          minuto: (item.status && item.status.displayClock) ? item.status.displayClock + "'" : null,
           estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
         });
       });
@@ -91,19 +97,16 @@ async function obtenerAgendaHoy() {
   });
 
   const partidos = Array.from(partidosMap.values());
-  // Ordenar por partidos en vivo primero, luego por horario de inicio
   partidos.sort((a, b) => (b.enVivo - a.enVivo) || a.hora.localeCompare(b.hora));
 
   return { fecha: fechaHeader, partidos: partidos };
 }
 
-// Endpoint API local
 app.get('/api/partidos', async (req, res) => {
   const data = await obtenerAgendaHoy();
   res.json(data);
 });
 
-// Interfaz Web Frontend
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="es">
@@ -206,4 +209,4 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
