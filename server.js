@@ -2,14 +2,14 @@ const express = require('express');
 const https = require('https');
 
 const app = express();
-const API_KEY = 'c617284c9amsh85e0674d8d84794p15d8adjsn647e0bdfdb55';
 
-// Función para formatear la hora a Argentina
-function formatearHoraArgentina(utcDateStr, utcTimeStr) {
-  if (!utcTimeStr) return 'A confirmar';
+// API Key gratuita de Football-Data.org
+const API_KEY = '8a3a41b212f74151b7a6378e9064c12a';
+
+function formatearHoraArgentina(utcDateStr) {
+  if (!utcDateStr) return 'A confirmar';
   try {
-    const fullIso = `${utcDateStr}T${utcTimeStr}Z`;
-    const dateObj = new Date(fullIso);
+    const dateObj = new Date(utcDateStr);
     return dateObj.toLocaleTimeString('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       hour: '2-digit',
@@ -17,22 +17,22 @@ function formatearHoraArgentina(utcDateStr, utcTimeStr) {
       hour12: false
     });
   } catch (e) {
-    return utcTimeStr.substring(0, 5);
+    return 'A confirmar';
   }
 }
 
-// Función principal de consulta a la API oficial
 function obtenerAgendaHoy() {
   return new Promise((resolve) => {
+    // Formato YYYY-MM-DD
     const hoy = new Date().toISOString().split('T')[0];
 
     const options = {
-      hostname: 'thesportsdb.p.rapidapi.com',
-      path: `/eventsday.php?d=${hoy}&s=Soccer`,
+      hostname: 'api.football-data.org',
+      path: `/v4/matches?dateFrom=${hoy}&dateTo=${hoy}`,
       method: 'GET',
       headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'thesportsdb.p.rapidapi.com'
+        'X-Auth-Token': API_KEY,
+        'User-Agent': 'NodeJSApp'
       }
     };
 
@@ -49,24 +49,23 @@ function obtenerAgendaHoy() {
 
         try {
           const json = JSON.parse(data);
-          if (json.events && json.events.length > 0) {
-            const partidos = json.events.map((p) => {
-              const horaLocal = formatearHoraArgentina(p.dateEvent || hoy, p.strTime);
-              const enVivo = p.strStatus === 'In Progress' || (p.strProgress && p.strProgress !== '');
-              const finalizado = p.strStatus === 'Match Finished' || p.strStatus === 'FT';
+          if (json.matches && json.matches.length > 0) {
+            const partidos = json.matches.map((p) => {
+              const horaLocal = formatearHoraArgentina(p.utcDate);
+              const enVivo = p.status === 'IN_PLAY' || p.status === 'PAUSED' || p.status === 'HALF_TIME';
+              const finalizado = p.status === 'FINISHED';
 
               return {
-                id: p.idEvent,
-                liga: p.strLeague || 'Fútbol',
-                local: p.strHomeTeam || 'Local',
-                visitante: p.strAwayTeam || 'Visitante',
-                golesLocal: p.intHomeScore !== null && p.intHomeScore !== "" ? parseInt(p.intHomeScore) : null,
-                golesVisitante: p.intAwayScore !== null && p.intAwayScore !== "" ? parseInt(p.intAwayScore) : null,
+                id: p.id,
+                liga: p.competition ? p.competition.name : 'Fútbol Internacional',
+                local: p.homeTeam ? p.homeTeam.shortName || p.homeTeam.name : 'Local',
+                visitante: p.awayTeam ? p.awayTeam.shortName || p.awayTeam.name : 'Visitante',
+                golesLocal: p.score && p.score.fullTime ? p.score.fullTime.home : null,
+                golesVisitante: p.score && p.score.fullTime ? p.score.fullTime.away : null,
                 hora: horaLocal,
                 enVivo: enVivo,
                 finalizado: finalizado,
-                minuto: p.strProgress || null,
-                estadoText: enVivo ? 'En disputa' : (finalizado ? 'Partido terminado' : 'Programado')
+                estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
               };
             });
             return resolve({ fecha: fechaStr, partidos: partidos });
@@ -86,25 +85,25 @@ function obtenerAgendaHoy() {
       });
       resolve({ fecha: fechaStr, partidos: [] });
     });
-    
+
     req.end();
   });
 }
 
-// Endpoint JSON para la app
+// Endpoint de la API
 app.get('/api/partidos', async (req, res) => {
   const data = await obtenerAgendaHoy();
   res.json(data);
 });
 
-// Interfaz HTML Frontend
+// Interfaz Web
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agenda de Partidos de Hoy</title>
+  <title>Agenda de Partidos</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
     .container { max-width: 440px; margin: 0 auto; }
@@ -134,7 +133,7 @@ app.get('/', (req, res) => {
       <h2><span class="pulse"></span> Agenda Real de Hoy</h2>
       <div id="fecha-hoy" class="date-badge">Cargando fecha...</div>
     </div>
-    <div id="matches-container">Obteniendo partidos...</div>
+    <div id="matches-container">Cargando agenda de partidos...</div>
   </div>
 
   <script>
@@ -146,7 +145,7 @@ app.get('/', (req, res) => {
         document.getElementById('fecha-hoy').innerText = data.fecha;
         renderizarAgenda(data.partidos);
       } catch (err) {
-        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#888;">Error al actualizar la agenda. Reintentando...</p>';
+        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#888;">Actualizando conexión...</p>';
       }
     }
 
@@ -160,7 +159,7 @@ app.get('/', (req, res) => {
       container.innerHTML = partidos.map(p => {
         let badgeEstado = \`<span class="time-badge">⏰ \${p.hora} hs</span>\`;
         if (p.enVivo) {
-          badgeEstado = \`<span class="live-badge">🔴 EN VIVO \${p.minuto ? "(" + p.minuto + "')" : ""}</span>\`;
+          badgeEstado = \`<span class="live-badge">🔴 EN VIVO</span>\`;
         } else if (p.finalizado) {
           badgeEstado = \`<span class="finished-badge">FINALIZADO</span>\`;
         }
@@ -182,7 +181,6 @@ app.get('/', (req, res) => {
       }).join('');
     }
 
-    // Carga inicial inmediata y refresco automático cada 10 segundos
     cargarPartidos();
     setInterval(cargarPartidos, 10000);
   </script>
@@ -191,4 +189,4 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
