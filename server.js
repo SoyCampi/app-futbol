@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// API del Backend: Agenda diaria de partidos y tabla de posiciones
+// API Backend: Agenda de partidos y posiciones
 app.get('/api/google-widget', async (req, res) => {
   const hoyStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
   const leagues = ['esp.1', 'arg.1', 'arg.copa', 'conmebol.libertadores', 'conmebol.sudamericana', 'uefa.champions', 'eng.1', 'usa.1'];
@@ -119,7 +119,6 @@ app.get('*', (req, res) => {
     .container { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 16px; }
     .card { background: #ffffff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(60,64,67,0.1); border: 1px solid #dadce0; }
 
-    /* Desplegable superior */
     .top-accordion-btn { width: 100%; background: #ffffff; border: 1px solid #dadce0; padding: 12px 16px; border-radius: 12px; font-weight: 600; font-size: 0.9rem; color: #1a73e8; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
     .top-accordion-btn:hover { background: #f8f9fa; }
     .agenda-dropdown { display: none; margin-top: 8px; max-height: 280px; overflow-y: auto; border: 1px solid #dadce0; border-radius: 12px; background: #fff; }
@@ -131,7 +130,6 @@ app.get('*', (req, res) => {
     .agenda-logo { width: 18px; height: 18px; object-fit: contain; }
     .agenda-status-col { font-size: 0.78rem; font-weight: 600; color: #5f6368; text-align: right; }
 
-    /* Partido principal */
     .league-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .league-name { font-size: 0.85rem; color: #5f6368; font-weight: 500; }
     .live-badge { background: #ea4335; color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; animation: pulse 1.5s infinite; }
@@ -146,34 +144,29 @@ app.get('*', (req, res) => {
     .score-num { font-size: 2.8rem; font-weight: 500; color: #202124; }
     .timer-txt { font-size: 1rem; font-weight: 700; color: #1e8e3e; }
 
-    /* Pestañas */
     .tabs-bar { display: flex; border-bottom: 1px solid #dadce0; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 0.85rem; font-weight: 600; color: #5f6368; cursor: pointer; border-bottom: 2px solid transparent; }
     .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Estadísticas */
     .stat-row { margin-bottom: 12px; }
     .stat-labels { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
     .stat-bar-bg { background: #f1f3f4; height: 8px; border-radius: 4px; display: flex; overflow: hidden; }
     .stat-bar-home { background: #1a73e8; height: 100%; }
     .stat-bar-away { background: #ea4335; height: 100%; }
 
-    /* Alineaciones */
     .lineup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .lineup-col-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: #1a73e8; }
     .player-row { font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid #f1f3f4; display: flex; gap: 8px; }
     .player-num { font-weight: 700; color: #70757a; width: 20px; }
 
-    /* Mapa de calor interactivo */
     .pitch-field { width: 100%; height: 220px; background: #2e7d32; border-radius: 12px; border: 2px solid rgba(255,255,255,0.4); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .pitch-line-center { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.4); }
     .pitch-circle { position: absolute; width: 70px; height: 70px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
     .heat-zone { position: absolute; border-radius: 50%; filter: blur(12px); opacity: 0.75; transition: all 0.5s ease; }
     .pitch-legend { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #5f6368; }
 
-    /* Tabla inferior */
     .table-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     th { color: #70757a; font-weight: 400; padding: 6px; text-align: center; }
@@ -186,8 +179,6 @@ app.get('*', (req, res) => {
 <body>
 
   <div class="container">
-    
-    <!-- 1. PARTIDOS DEL DÍA (DESPLEGABLE ARRIBA) -->
     <div>
       <button class="top-accordion-btn" onclick="toggleAgenda()">
         <span>📅 Partidos de Hoy (<span id="count-agenda">0</span>)</span>
@@ -196,7 +187,6 @@ app.get('*', (req, res) => {
       <div class="agenda-dropdown" id="dropdown-agenda"></div>
     </div>
 
-    <!-- 2. CARD DE PARTIDO EN VIVO / SELECCIONADO -->
     <div class="card" id="card-main">
       <div class="league-header">
         <span class="league-name" id="lbl-liga">Cargando datos...</span>
@@ -219,21 +209,18 @@ app.get('*', (req, res) => {
         </div>
       </div>
 
-      <!-- Pestañas interactivas -->
       <div class="tabs-bar">
         <button class="tab-btn active" onclick="switchTab(event, 'stats')">Estadísticas</button>
         <button class="tab-btn" onclick="switchTab(event, 'lineups')">Alineaciones</button>
         <button class="tab-btn" onclick="switchTab(event, 'heatmap')">Mapa de Calor</button>
       </div>
 
-      <!-- Contenido: Estadísticas -->
       <div id="tab-stats" class="tab-content active">
         <div id="stats-container">
           <p style="text-align:center; color:#70757a; font-size:0.85rem;">Selecciona un partido para ver estadísticas.</p>
         </div>
       </div>
 
-      <!-- Contenido: Alineaciones -->
       <div id="tab-lineups" class="tab-content">
         <div class="lineup-grid">
           <div>
@@ -247,7 +234,6 @@ app.get('*', (req, res) => {
         </div>
       </div>
 
-      <!-- Contenido: Mapa de calor interactivo -->
       <div id="tab-heatmap" class="tab-content">
         <div class="pitch-field" id="pitch-container">
           <div class="pitch-line-center"></div>
@@ -256,13 +242,12 @@ app.get('*', (req, res) => {
           <div class="heat-zone" id="heat-away" style="width: 120px; height: 120px; background: #ea4335; right: 20%; top: 20%;"></div>
         </div>
         <div class="pitch-legend">
-          <span id="legend-home" style="color: #1a73e8;">Local: Dominio en mediocampo</span>
-          <span id="legend-away" style="color: #ea4335;">Visitante: Ataque por bandas</span>
+          <span id="legend-home" style="color: #1a73e8;">Local: Dominio territorial</span>
+          <span id="legend-away" style="color: #ea4335;">Visitante: Dominio territorial</span>
         </div>
       </div>
     </div>
 
-    <!-- 3. TABLA DE POSICIONES (ABAJO DE TODO) -->
     <div class="card">
       <div class="table-title">Tabla de Posiciones</div>
       <table>
@@ -281,7 +266,6 @@ app.get('*', (req, res) => {
         <tbody id="tbody-posiciones"></tbody>
       </table>
     </div>
-
   </div>
 
   <script>
@@ -312,23 +296,23 @@ app.get('*', (req, res) => {
         document.getElementById('count-agenda').innerText = agendaMatches.length;
 
         const container = document.getElementById('dropdown-agenda');
-        container.innerHTML = agendaMatches.map(item => `
-          <div class="agenda-item ${activeMatch && activeMatch.id === item.id ? 'selected' : ''}" onclick="selectMatch('${item.id}')">
+        container.innerHTML = agendaMatches.map(item => \`
+          <div class="agenda-item \${activeMatch && activeMatch.id === item.id ? 'selected' : ''}" onclick="selectMatch('\${item.id}')">
             <div class="agenda-teams-col">
               <div class="agenda-team-row">
-                ${item.logoLocal ? `<img src="${item.logoLocal}" class="agenda-logo">` : ''}
-                <span>${item.local}</span>
-                <strong>${item.golesLocal}</strong>
+                \${item.logoLocal ? \`<img src="\${item.logoLocal}" class="agenda-logo">\` : ''}
+                <span>\${item.local}</span>
+                <strong>\${item.golesLocal}</strong>
               </div>
               <div class="agenda-team-row">
-                ${item.logoVisitante ? `<img src="${item.logoVisitante}" class="agenda-logo">` : ''}
-                <span>${item.visitante}</span>
-                <strong>${item.golesVisitante}</strong>
+                \${item.logoVisitante ? \`<img src="\${item.logoVisitante}" class="agenda-logo">\` : ''}
+                <span>\${item.visitante}</span>
+                <strong>\${item.golesVisitante}</strong>
               </div>
             </div>
-            <div class="agenda-status-col">${item.estado}</div>
+            <div class="agenda-status-col">\${item.estado}</div>
           </div>
-        `).join('');
+        \`).join('');
 
         if (!activeMatch && data.mainMatch) {
           selectMatch(data.mainMatch.id);
@@ -336,21 +320,21 @@ app.get('*', (req, res) => {
 
         const tbody = document.getElementById('tbody-posiciones');
         if (data.standings && data.standings.length) {
-          tbody.innerHTML = data.standings.map(s => `
+          tbody.innerHTML = data.standings.map(s => \`
             <tr>
-              <td style="color:#70757a;">${s.pos}</td>
+              <td style="color:#70757a;">\${s.pos}</td>
               <td class="align-left">
-                ${s.logo ? `<img src="${s.logo}" class="mini-logo">` : ''}
-                <span>${s.nombre}</span>
+                \${s.logo ? \`<img src="\${s.logo}" class="mini-logo">\` : ''}
+                <span>\${s.nombre}</span>
               </td>
-              <td>${s.pj}</td>
-              <td>${s.g}</td>
-              <td>${s.e}</td>
-              <td>${s.p}</td>
-              <td>${s.dg}</td>
-              <td><strong>${s.pts}</strong></td>
+              <td>\${s.pj}</td>
+              <td>\${s.g}</td>
+              <td>\${s.e}</td>
+              <td>\${s.p}</td>
+              <td>\${s.dg}</td>
+              <td><strong>\${s.pts}</strong></td>
             </tr>
-          `).join('');
+          \`).join('');
         }
 
       } catch (e) {
@@ -376,7 +360,7 @@ app.get('*', (req, res) => {
       document.getElementById('txt-tiempo').innerText = activeMatch.estado.replace('🔴 ', '');
 
       try {
-        const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${activeMatch.leagueSlug}/summary?event=${activeMatch.id}`;
+        const summaryUrl = \`https://site.api.espn.com/apis/site/v2/sports/soccer/\${activeMatch.leagueSlug}/summary?event=\${activeMatch.id}\`;
         const sumRes = await fetch(summaryUrl).then(r => r.ok ? r.json() : null);
 
         let possessionHome = 50;
@@ -408,38 +392,36 @@ app.get('*', (req, res) => {
             const hPct = Math.round((hVal / total) * 100);
             const aPct = 100 - hPct;
 
-            return `
+            return \`
               <div class="stat-row">
                 <div class="stat-labels">
-                  <span>${s.home}</span>
-                  <span>${s.label}</span>
-                  <span>${s.away}</span>
+                  <span>\${s.home}</span>
+                  <span>\${s.label}</span>
+                  <span>\${s.away}</span>
                 </div>
                 <div class="stat-bar-bg">
-                  <div class="stat-bar-home" style="width: ${hPct}%"></div>
-                  <div class="stat-bar-away" style="width: ${aPct}%"></div>
+                  <div class="stat-bar-home" style="width: \${hPct}%"></div>
+                  <div class="stat-bar-away" style="width: \${aPct}%"></div>
                 </div>
               </div>
-            `;
+            \`;
           }).join('');
         }
 
-        // Actualizar el Roadmap / Mapa de Calor con base en los datos del partido
         const heatH = document.getElementById('heat-home');
         const heatA = document.getElementById('heat-away');
         
         const sizeH = Math.min(180, Math.max(70, possessionHome * 2.2));
         const sizeA = Math.min(180, Math.max(70, possessionAway * 2.2));
 
-        heatH.style.width = `${sizeH}px`;
-        heatH.style.height = `${sizeH}px`;
-        heatA.style.width = `${sizeA}px`;
-        heatA.style.height = `${sizeA}px`;
+        heatH.style.width = \`\${sizeH}px\`;
+        heatH.style.height = \`\${sizeH}px\`;
+        heatA.style.width = \`\${sizeA}px\`;
+        heatA.style.height = \`\${sizeA}px\`;
 
-        document.getElementById('legend-home').innerText = `${activeMatch.local}: ${possessionHome}% Dominio territorial`;
-        document.getElementById('legend-away').innerText = `${activeMatch.visitante}: ${possessionAway}% Dominio territorial`;
+        document.getElementById('legend-home').innerText = \`\${activeMatch.local}: \${possessionHome}% Dominio territorial\`;
+        document.getElementById('legend-away').innerText = \`\${activeMatch.visitante}: \${possessionAway}% Dominio territorial\`;
 
-        // Alineaciones
         if (sumRes && sumRes.rosters) {
           const hRoster = sumRes.rosters[0]?.roster || [];
           const aRoster = sumRes.rosters[1]?.roster || [];
@@ -448,7 +430,7 @@ app.get('*', (req, res) => {
           document.getElementById('lineup-away-title').innerText = activeMatch.visitante;
 
           const renderRoster = (list) => list.length 
-            ? list.slice(0, 11).map(p => `<div class="player-row"><span class="player-num">${p.jersey || '-'}</span> <span>${p.athlete?.displayName || 'Jugador'}</span></div>`).join('')
+            ? list.slice(0, 11).map(p => \`<div class="player-row"><span class="player-num">\${p.jersey || '-'}</span> <span>\${p.athlete?.displayName || 'Jugador'}</span></div>\`).join('')
             : '<p style="font-size:0.8rem; color:#70757a;">Alineación sin confirmar</p>';
 
           document.getElementById('lineup-home-list').innerHTML = renderRoster(hRoster);
