@@ -38,14 +38,25 @@ app.get('*', (req, res) => {
     .finished-badge { color: #adadb8; font-weight: bold; }
     .click-hint { font-size: 0.7rem; color: #00ff88; font-weight: 600; }
 
-    /* Modal centrado en pantalla */
+    /* Modal centrado */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
-    .modal-content { background: #18181b; width: 100%; max-width: 440px; max-height: 80vh; border-radius: 16px; padding: 20px; overflow-y: auto; border: 1px solid #00ff88; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; }
+    .modal-content { background: #18181b; width: 100%; max-width: 440px; max-height: 85vh; border-radius: 16px; padding: 20px; overflow-y: auto; border: 1px solid #00ff88; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; }
     
     .close-btn { position: absolute; top: 12px; right: 15px; background: #2f2f35; color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; }
     .modal-header { text-align: center; margin-bottom: 15px; }
     
     .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 0.85rem; border-bottom: 1px solid #26262c; padding-bottom: 4px; }
+
+    /* Cancha Táctica y Mapa de Calor */
+    .pitch-container { position: relative; width: 100%; height: 180px; background: #1b381e; border: 2px solid #2e5c33; border-radius: 10px; margin: 15px 0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    .pitch-line-center { position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.3); top: 50%; }
+    .pitch-circle { position: absolute; width: 60px; height: 60px; border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; top: calc(50% - 30px); }
+    .pitch-box-top { position: absolute; width: 100px; height: 35px; border: 1px solid rgba(255,255,255,0.3); border-top: none; top: 0; }
+    .pitch-box-bottom { position: absolute; width: 100px; height: 35px; border: 1px solid rgba(255,255,255,0.3); border-bottom: none; bottom: 0; }
+    
+    .heat-zone { position: absolute; border-radius: 50%; filter: blur(12px); opacity: 0.75; transition: all 0.5s ease; }
+    .heat-home { background: radial-gradient(circle, rgba(0,255,136,0.9) 0%, rgba(0,255,136,0) 70%); }
+    .heat-away { background: radial-gradient(circle, rgba(255,0,85,0.9) 0%, rgba(255,0,85,0) 70%); }
   </style>
 </head>
 <body>
@@ -167,7 +178,7 @@ app.get('*', (req, res) => {
           <div class="match-card" onclick="abrirEstadisticas('\${p.id}')">
             <div class="league-title">
               <span>\${p.liga}</span>
-              <span class="click-hint">Ver stats 📊</span>
+              <span class="click-hint">Ver stats & heatmap 🔥</span>
             </div>
             <div class="teams-container">
               <div class="team-box team-left">
@@ -193,7 +204,7 @@ app.get('*', (req, res) => {
       const modal = document.getElementById('stats-modal');
       const modalBody = document.getElementById('modal-body');
       modal.style.display = 'flex';
-      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando detalles e incidencias...</p>';
+      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando mapa de calor y estadísticas...</p>';
 
       try {
         const res = await fetch(\`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=\${matchId}\`);
@@ -229,15 +240,45 @@ app.get('*', (req, res) => {
           </div>
         \`;
 
-        // Renderizado blindado de métricas
-        let tieneMetricas = false;
+        // Generación de Mapa de Calor de Presión y Dominio
+        let valPosesionHome = 50;
+        let valPosesionAway = 50;
 
+        if (boxscore && Array.isArray(boxscore.teams) && boxscore.teams.length >= 2) {
+          const statsHome = boxscore.teams[0].statistics || [];
+          const posStat = statsHome.find(s => s.name === 'possessionPct' || s.label === 'Posesión');
+          if (posStat) {
+            valPosesionHome = parseFloat(posStat.displayValue) || 50;
+            valPosesionAway = 100 - valPosesionHome;
+          }
+        }
+
+        htmlStats += \`
+          <h4 style="color:#00ff88; margin: 15px 0 5px 0; font-size:0.85rem;">🔥 Mapa de Calor de Dominio</h4>
+          <div class="pitch-container">
+            <div class="pitch-line-center"></div>
+            <div class="pitch-circle"></div>
+            <div class="pitch-box-top"></div>
+            <div class="pitch-box-bottom"></div>
+            
+            <!-- Zona de Calor Equipo Local (Verde) -->
+            <div class="heat-zone heat-home" style="width:\${valPosesionHome * 1.8}px; height:\${valPosesionHome * 1.8}px; top:15%; left:\${Math.max(10, valPosesionHome - 20)}%;"></div>
+            
+            <!-- Zona de Calor Equipo Visitante (Rojo) -->
+            <div class="heat-zone heat-away" style="width:\${valPosesionAway * 1.8}px; height:\${valPosesionAway * 1.8}px; bottom:15%; right:\${Math.max(10, valPosesionAway - 20)}%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#aaa; margin-bottom:15px;">
+            <span style="color:#00ff88;">🟢 Zona Local (\${valPosesionHome}%)</span>
+            <span style="color:#ff0055;">🔴 Zona Visitante (\${valPosesionAway}%)</span>
+          </div>
+        \`;
+
+        // Métricas numéricas
         if (boxscore && Array.isArray(boxscore.teams) && boxscore.teams.length >= 2) {
           const statsHome = boxscore.teams[0].statistics || [];
           const statsAway = boxscore.teams[1].statistics || [];
 
           if (statsHome.length > 0) {
-            tieneMetricas = true;
             htmlStats += '<h4 style="color:#00ff88; margin: 15px 0 10px 0; border-bottom:1px solid #2f2f35; padding-bottom:5px; font-size:0.85rem;">📊 Métricas del Partido</h4>';
 
             statsHome.forEach((st, idx) => {
@@ -255,18 +296,9 @@ app.get('*', (req, res) => {
           }
         }
 
-        if (!tieneMetricas) {
-          htmlStats += \`
-            <div style="text-align:center; padding:20px 10px; color:#aaa; font-size:0.85rem; background:#121214; border-radius:10px; margin-top:10px;">
-              <p style="margin:0 0 6px 0; font-weight:bold; color:#ffcc00;">⏳ Sin métricas registradas</p>
-              <span>Las estadísticas detalladas (posesión, tiros, faltas) se publicarán de forma automática apenas comience la transmisión oficial del encuentro.</span>
-            </div>
-          \`;
-        }
-
         modalBody.innerHTML = htmlStats;
       } catch (err) {
-        modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">No hay estadísticas en tiempo real registradas para este partido previo a su inicio.</p>';
+        modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">No se pudo cargar la vista táctica de este encuentro.</p>';
       }
     }
 
