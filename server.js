@@ -44,7 +44,7 @@ app.get('*', (req, res) => {
 
     /* Modal Google Card */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(32,33,36,0.6); backdrop-filter: blur(2px); z-index: 1000; justify-content: center; align-items: center; padding: 12px; }
-    .modal-content { background: #ffffff; width: 100%; max-width: 520px; max-height: 90vh; border-radius: 20px; padding: 20px; overflow-y: auto; box-shadow: 0 8px 24px rgba(60,64,67,0.28); position: relative; border: 1px solid #dadce0; }
+    .modal-content { background: #ffffff; width: 100%; max-width: 540px; max-height: 90vh; border-radius: 20px; padding: 20px; overflow-y: auto; box-shadow: 0 8px 24px rgba(60,64,67,0.28); position: relative; border: 1px solid #dadce0; }
     .close-btn { position: absolute; top: 14px; right: 16px; background: #f1f3f4; color: #5f6368; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; z-index: 10; }
     .close-btn:hover { background: #e8eaed; color: #202124; }
 
@@ -64,7 +64,8 @@ app.get('*', (req, res) => {
 
     .roster-list-card { background: #1e293b; border-radius: 8px; padding: 12px; border-left: 4px solid #38bdf8; }
     .roster-header-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; font-weight: 600; }
-    .player-row-item { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-bottom: 1px solid #334155; font-size: 0.82rem; }
+    .player-row-item { display: flex; align-items: center; gap: 10px; padding: 6px; border-bottom: 1px solid #334155; font-size: 0.82rem; cursor: pointer; transition: background 0.15s; }
+    .player-row-item:hover { background: #334155; border-radius: 4px; }
     .player-row-num { width: 22px; font-weight: bold; color: #38bdf8; text-align: right; }
     .player-row-name { font-weight: 500; color: #f8fafc; flex-grow: 1; }
 
@@ -72,7 +73,17 @@ app.get('*', (req, res) => {
     .tv-pitch-center-line { position: absolute; top: 50%; width: 100%; height: 2px; background: rgba(255,255,255,0.4); }
     .tv-pitch-circle { position: absolute; top: calc(50% - 30px); left: calc(50% - 30px); width: 60px; height: 60px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
     .tactical-row { display: flex; justify-content: space-around; align-items: center; width: 100%; z-index: 2; }
-    .tv-node-circle { width: 26px; height: 26px; border-radius: 50%; background: #0284c7; color: #fff; border: 2px solid #fff; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .tv-node-circle { width: 26px; height: 26px; border-radius: 50%; background: #0284c7; color: #fff; border: 2px solid #fff; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5); cursor: pointer; transition: transform 0.15s; }
+    .tv-node-circle:hover { transform: scale(1.2); }
+
+    /* Card Estilo SofaScore / Instagram */
+    .sofascore-card-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.92); z-index: 1050; border-radius: 20px; padding: 16px; overflow-y: auto; color: #fff; backdrop-filter: blur(4px); }
+    .sofascore-grid { display: grid; grid-template-columns: 140px 1fr; gap: 12px; margin-top: 10px; }
+    @media (max-width: 450px) { .sofascore-grid { grid-template-columns: 1fr; } }
+    .sofascore-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .sofascore-table td { padding: 4px 6px; border-bottom: 1px solid #334155; }
+    .sofascore-table td:last-child { text-align: right; font-weight: bold; color: #38bdf8; }
+    .heatmap-box { width: 100%; height: 110px; background: #15803d; border-radius: 6px; border: 1px solid #86efac; position: relative; margin-top: 10px; overflow: hidden; }
   </style>
 </head>
 <body>
@@ -96,6 +107,12 @@ app.get('*', (req, res) => {
 
       <div id="modal-body-general">Cargando...</div>
       <div id="modal-body-lineups" style="display:none;">Cargando alineaciones...</div>
+
+      <!-- Card SofaScore / Instagram -->
+      <div id="sofascore-card" class="sofascore-card-overlay">
+        <button style="position:absolute; right:12px; top:12px; background:#334155; border:none; color:#fff; width:28px; height:28px; border-radius:50%; font-size:1rem; cursor:pointer;" onclick="cerrarSofaCard()">✕</button>
+        <div id="sofascore-card-content"></div>
+      </div>
     </div>
   </div>
 
@@ -262,11 +279,26 @@ app.get('*', (req, res) => {
       renderBroadcastView(currentSelectedRosterIndex);
     }
 
+    function obtenerLogoEquipo(rosterObj) {
+      if (rosterObj.team?.logo) return rosterObj.team.logo;
+      if (rosterObj.team?.logos?.[0]?.href) return rosterObj.team.logos[0].href;
+      
+      const comp = globalMatchData?.header?.competitions?.[0];
+      if (comp?.competitors) {
+        const matchingComp = comp.competitors.find(c => c.team?.id === rosterObj.team?.id);
+        if (matchingComp?.team?.logo) return matchingComp.team.logo;
+      }
+      return '';
+    }
+
     function renderBroadcastView(teamIdx) {
       currentSelectedRosterIndex = teamIdx;
       const rosters = globalMatchData.rosters;
       const activeRoster = rosters[teamIdx];
       const starters = (activeRoster.roster || []).filter(p => p.starter).slice(0, 11);
+
+      const logoHome = obtenerLogoEquipo(rosters[0]);
+      const logoAway = obtenerLogoEquipo(rosters[1]);
 
       const teamColor = activeRoster.team?.color ? '#' + activeRoster.team.color : '#0284c7';
 
@@ -282,11 +314,11 @@ app.get('*', (req, res) => {
         <div class="lineup-broadcast-container">
           <div class="team-selector-tabs">
             <button class="team-tab-btn \${teamIdx === 0 ? 'active' : ''}" onclick="renderBroadcastView(0)">
-              <img src="\${rosters[0].team?.logo || ''}" style="width:18px; height:18px;">
+              \${logoHome ? \`<img src="\${logoHome}" style="width:18px; height:18px; object-fit:contain;">\` : ''}
               \${rosters[0].team?.shortDisplayName || 'Local'}
             </button>
             <button class="team-tab-btn \${teamIdx === 1 ? 'active' : ''}" onclick="renderBroadcastView(1)">
-              <img src="\${rosters[1].team?.logo || ''}" style="width:18px; height:18px;">
+              \${logoAway ? \`<img src="\${logoAway}" style="width:18px; height:18px; object-fit:contain;">\` : ''}
               \${rosters[1].team?.shortDisplayName || 'Visitante'}
             </button>
           </div>
@@ -298,14 +330,15 @@ app.get('*', (req, res) => {
                 const ath = p.athlete || {};
                 const num = ath.jersey || '?';
                 const name = ath.displayName || 'Jugador';
+                const pData = JSON.stringify(p).replace(/"/g, '&quot;');
                 return \`
-                  <div class="player-row-item">
+                  <div class="player-row-item" onclick="abrirSofaCard(\${pData})">
                     <span class="player-row-num">\${num}</span>
                     <span class="player-row-name">\${name}</span>
                   </div>
                 \`;
               }).join('')}
-              <div class="player-row-item" style="margin-top:8px; border-top:1px solid #334155; color:#94a3b8;">
+              <div class="player-row-item" style="margin-top:8px; border-top:1px solid #334155; color:#94a3b8; cursor:default;">
                 <span style="font-weight:600;">DT:</span>
                 <span>\${activeRoster.coach?.[0]?.firstName ? activeRoster.coach[0].firstName + ' ' + activeRoster.coach[0].lastName : 'A confirmar'}</span>
               </div>
@@ -318,7 +351,8 @@ app.get('*', (req, res) => {
                 <div class="tactical-row">
                   \${row.map(p => {
                     const num = p.athlete?.jersey || '?';
-                    return \`<div class="tv-node-circle" style="background:\${teamColor};">\${num}</div>\`;
+                    const pData = JSON.stringify(p).replace(/"/g, '&quot;');
+                    return \`<div class="tv-node-circle" style="background:\${teamColor};" onclick="abrirSofaCard(\${pData})">\${num}</div>\`;
                   }).join('')}
                 </div>
               \`).join('')}
@@ -330,11 +364,63 @@ app.get('*', (req, res) => {
       document.getElementById('modal-body-lineups').innerHTML = html;
     }
 
+    function abrirSofaCard(p) {
+      const ath = p.athlete || {};
+      const fotoUrl = ath.headshot?.href || (ath.id ? \`https://a.espncdn.com/i/headshots/soccer/players/full/\${ath.id}.png\` : 'https://a.espncdn.com/i/headshots/nophoto.png');
+      
+      const statsMap = {};
+      if (p.stats) {
+        p.stats.forEach(st => {
+          statsMap[st.name || st.label] = st.displayValue || st.value || '0';
+        });
+      }
+
+      const html = \`
+        <div style="font-size:0.8rem; font-weight:bold; color:#38bdf8; text-transform:uppercase; letter-spacing:1px;">Estadísticas del Jugador</div>
+        <div style="font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:8px;">\${ath.displayName || 'Jugador'} #\${ath.jersey || ''}</div>
+        
+        <div class="sofascore-grid">
+          <div>
+            <img src="\${fotoUrl}" style="width:100%; max-width:130px; height:150px; object-fit:cover; border-radius:8px; border:1px solid #334155; background:#1e293b;" onerror="this.src='https://a.espncdn.com/i/headshots/nophoto.png'" alt="">
+            
+            <div class="heatmap-box">
+              <div style="position:absolute; top:4px; left:6px; font-size:0.65rem; color:#86efac; font-weight:bold; background:rgba(0,0,0,0.5); padding:1px 4px; border-radius:3px;">SofaScore Heatmap</div>
+              <div style="position:absolute; top:35%; left:30%; width:35px; height:35px; background:radial-gradient(circle, rgba(239,68,68,0.8) 0%, rgba(234,179,8,0.5) 50%, transparent 70%); border-radius:50%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <table class="sofascore-table">
+              <tr><td>Minutos jugados</td><td>\${statsMap['minutesPlayed'] || statsMap['mins'] || '90\''}</td></tr>
+              <tr><td>Goles</td><td>\${statsMap['goals'] || '0'}</td></tr>
+              <tr><td>Asistencias</td><td>\${statsMap['goalAssists'] || statsMap['assists'] || '0'}</td></tr>
+              <tr><td>Despejes</td><td>\${statsMap['clearances'] || '0'}</td></tr>
+              <tr><td>Disparos Bloqueados</td><td>\${statsMap['blockedShots'] || '0'}</td></tr>
+              <tr><td>Intercepciones</td><td>\${statsMap['interceptions'] || '0'}</td></tr>
+              <tr><td>Entradas</td><td>\${statsMap['tackles'] || '0'}</td></tr>
+              <tr><td>Pases precisos</td><td>\${statsMap['accuratePasses'] || statsMap['passes'] || '0'}</td></tr>
+              <tr><td>Pases clave</td><td>\${statsMap['keyPasses'] || '0'}</td></tr>
+              <tr><td>Faltas recibidas</td><td>\${statsMap['foulsSuffered'] || '0'}</td></tr>
+              <tr><td>Tiros a puerta</td><td>\${statsMap['shotsOnTarget'] || '0'}</td></tr>
+            </table>
+          </div>
+        </div>
+      \`;
+
+      document.getElementById('sofascore-card-content').innerHTML = html;
+      document.getElementById('sofascore-card').style.display = 'block';
+    }
+
+    function cerrarSofaCard() {
+      document.getElementById('sofascore-card').style.display = 'none';
+    }
+
     function cambiarTab(tab) {
       document.getElementById('tab-general-btn').classList.toggle('active', tab === 'general');
       document.getElementById('tab-lineups-btn').classList.toggle('active', tab === 'lineups');
       document.getElementById('modal-body-general').style.display = tab === 'general' ? 'block' : 'none';
       document.getElementById('modal-body-lineups').style.display = tab === 'lineups' ? 'block' : 'none';
+      cerrarSofaCard();
     }
 
     function cerrarModal(e) {
@@ -343,6 +429,7 @@ app.get('*', (req, res) => {
 
     function cerrarModalDirecto() {
       document.getElementById('stats-modal').style.display = 'none';
+      cerrarSofaCard();
     }
 
     cargarAgendaDirecta();
