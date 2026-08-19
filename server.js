@@ -2,17 +2,20 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// API Backend: Agenda de partidos y posiciones
+// ==========================================
+// 1. API BACKEND (Agenda, Marcador y Standings)
+// ==========================================
 app.get('/api/google-widget', async (req, res) => {
-  const hoyStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const leagues = ['esp.1', 'arg.1', 'arg.copa', 'conmebol.libertadores', 'conmebol.sudamericana', 'uefa.champions', 'eng.1', 'usa.1'];
+  // Fecha en formato YYYYMMDD para la zona horaria de Argentina
+  const ahoraArg = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina_Buenos_Aires' }).replace(/-/g, '');
+  const leagues = ['arg.1', 'arg.copa', 'conmebol.libertadores', 'conmebol.sudamericana', 'esp.1', 'uefa.champions', 'eng.1', 'usa.1'];
 
   try {
     let allEvents = [];
 
     for (const slug of leagues) {
       try {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${hoyStr}`;
+        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${ahoraArg}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -27,18 +30,6 @@ app.get('/api/google-widget', async (req, res) => {
       } catch (e) {}
     }
 
-    if (allEvents.length === 0) {
-      try {
-        const urlDef = `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard`;
-        const rDef = await fetch(urlDef).then(r => r.json());
-        allEvents = (rDef.events || []).map(ev => ({
-          ...ev,
-          _leagueName: rDef.leagues?.[0]?.name || 'LaLiga',
-          _leagueSlug: 'esp.1'
-        }));
-      } catch (e) {}
-    }
-
     const agenda = allEvents.map(e => {
       const comp = e.competitions?.[0];
       const home = comp?.competitors?.find(c => c.homeAway === 'home');
@@ -46,13 +37,16 @@ app.get('/api/google-widget', async (req, res) => {
       const dt = new Date(e.date);
       const state = e.status?.type?.state;
 
+      // Conversión explícita a la hora de Argentina (24hs)
+      const horaArg = dt.toLocaleTimeString('es-AR', { timeZone: 'America/Argentina_Buenos_Aires', hour: '2-digit', minute: '2-digit', hour12: false }) + ' hs';
+
       let estadoTexto = '';
       if (state === 'in') {
         estadoTexto = `🔴 EN VIVO ${e.status?.displayClock ? e.status.displayClock + "'" : ''}`;
       } else if (state === 'post') {
         estadoTexto = 'FINAL';
       } else {
-        estadoTexto = dt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' hs';
+        estadoTexto = horaArg;
       }
 
       return {
@@ -66,6 +60,7 @@ app.get('/api/google-widget', async (req, res) => {
         logoVisitante: away?.team?.logo || away?.team?.logos?.[0]?.href || '',
         golesVisitante: away?.score ?? '0',
         estado: estadoTexto,
+        displayClock: parseInt(e.status?.displayClock) || 0,
         enVivo: state === 'in'
       };
     });
@@ -105,14 +100,16 @@ app.get('/api/google-widget', async (req, res) => {
   }
 });
 
-// Interfaz Frontend
+// ==========================================
+// 2. FRONTEND HTML/CSS/JS INTEGRADO
+// ==========================================
 app.get('*', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Match & Live Stats Widget</title>
+  <title>Google Match & Live Stats</title>
   <style>
     * { box-sizing: border-box; font-family: 'Google Sans', Roboto, Arial, sans-serif; }
     body { background-color: #f8f9fa; color: #202124; margin: 0; padding: 20px 10px; display: flex; justify-content: center; }
@@ -135,7 +132,7 @@ app.get('*', (req, res) => {
     .live-badge { background: #ea4335; color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-    .match-score-board { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .match-score-board { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .team-col { display: flex; flex-direction: column; align-items: center; width: 32%; text-align: center; }
     .team-logo-lg { width: 64px; height: 64px; object-fit: contain; margin-bottom: 6px; }
     .team-title { font-size: 0.98rem; font-weight: 600; color: #202124; }
@@ -143,6 +140,12 @@ app.get('*', (req, res) => {
     .score-center { display: flex; align-items: center; gap: 12px; }
     .score-num { font-size: 2.8rem; font-weight: 500; color: #202124; }
     .timer-txt { font-size: 1rem; font-weight: 700; color: #1e8e3e; }
+
+    /* Lista de Goles y Tarjetas */
+    .events-container { display: flex; justify-content: space-between; font-size: 0.78rem; color: #5f6368; margin-bottom: 15px; padding: 0 10px; gap: 10px; }
+    .events-list { display: flex; flex-direction: column; gap: 3px; width: 48%; }
+    .events-home { text-align: left; }
+    .events-away { text-align: right; }
 
     .tabs-bar { display: flex; border-bottom: 1px solid #dadce0; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 0.85rem; font-weight: 600; color: #5f6368; cursor: pointer; border-bottom: 2px solid transparent; }
@@ -158,7 +161,8 @@ app.get('*', (req, res) => {
 
     .lineup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .lineup-col-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: #1a73e8; }
-    .player-row { font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid #f1f3f4; display: flex; gap: 8px; }
+    .player-row { font-size: 0.8rem; padding: 8px; border-bottom: 1px solid #f1f3f4; display: flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s; user-select: none; }
+    .player-row:hover { background: #e8f0fe; color: #1a73e8; }
     .player-num { font-weight: 700; color: #70757a; width: 20px; }
 
     .pitch-field { width: 100%; height: 220px; background: #2e7d32; border-radius: 12px; border: 2px solid rgba(255,255,255,0.4); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
@@ -166,6 +170,14 @@ app.get('*', (req, res) => {
     .pitch-circle { position: absolute; width: 70px; height: 70px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
     .heat-zone { position: absolute; border-radius: 50%; filter: blur(12px); opacity: 0.75; transition: all 0.5s ease; }
     .pitch-legend { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #5f6368; }
+
+    /* Modal / Pop-up de Jugador */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-card { background: #fff; width: 90%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: relative; }
+    .modal-close { position: absolute; top: 12px; right: 16px; font-size: 1.2rem; cursor: pointer; color: #70757a; font-weight: bold; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; color: #202124; margin-bottom: 2px; }
+    .modal-subtitle { font-size: 0.82rem; color: #1a73e8; margin-bottom: 14px; font-weight: 600; }
+    .modal-stat-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f3f4; font-size: 0.85rem; }
 
     .table-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
@@ -189,7 +201,7 @@ app.get('*', (req, res) => {
 
     <div class="card" id="card-main">
       <div class="league-header">
-        <span class="league-name" id="lbl-liga">Cargando datos...</span>
+        <span class="league-name" id="lbl-liga">Cargando...</span>
         <span id="badge-vivo" class="live-badge" style="display:none;">EN VIVO</span>
       </div>
 
@@ -209,6 +221,12 @@ app.get('*', (req, res) => {
         </div>
       </div>
 
+      <!-- Eventos: Goles y Tarjetas -->
+      <div class="events-container">
+        <div class="events-list events-home" id="events-home-list"></div>
+        <div class="events-list events-away" id="events-away-list"></div>
+      </div>
+
       <div class="tabs-bar">
         <button class="tab-btn active" onclick="switchTab(event, 'stats')">Estadísticas</button>
         <button class="tab-btn" onclick="switchTab(event, 'lineups')">Alineaciones</button>
@@ -217,7 +235,7 @@ app.get('*', (req, res) => {
 
       <div id="tab-stats" class="tab-content active">
         <div id="stats-container">
-          <p style="text-align:center; color:#70757a; font-size:0.85rem;">Selecciona un partido para ver estadísticas.</p>
+          <p style="text-align:center; color:#70757a; font-size:0.85rem;">Cargando estadísticas...</p>
         </div>
       </div>
 
@@ -235,15 +253,15 @@ app.get('*', (req, res) => {
       </div>
 
       <div id="tab-heatmap" class="tab-content">
-        <div class="pitch-field" id="pitch-container">
+        <div class="pitch-field">
           <div class="pitch-line-center"></div>
           <div class="pitch-circle"></div>
-          <div class="heat-zone" id="heat-home" style="width: 120px; height: 120px; background: #1a73e8; left: 20%; top: 20%;"></div>
-          <div class="heat-zone" id="heat-away" style="width: 120px; height: 120px; background: #ea4335; right: 20%; top: 20%;"></div>
+          <div class="heat-zone" id="heat-home" style="width: 100px; height: 100px; background: #1a73e8; left: 20%; top: 25%;"></div>
+          <div class="heat-zone" id="heat-away" style="width: 100px; height: 100px; background: #ea4335; right: 20%; top: 25%;"></div>
         </div>
         <div class="pitch-legend">
-          <span id="legend-home" style="color: #1a73e8;">Local: Dominio territorial</span>
-          <span id="legend-away" style="color: #ea4335;">Visitante: Dominio territorial</span>
+          <span id="legend-home" style="color: #1a73e8;">Local</span>
+          <span id="legend-away" style="color: #ea4335;">Visitante</span>
         </div>
       </div>
     </div>
@@ -266,11 +284,25 @@ app.get('*', (req, res) => {
         <tbody id="tbody-posiciones"></tbody>
       </table>
     </div>
+
+    <!-- Modal Card para Estadísticas de Jugador -->
+    <div class="modal-overlay" id="player-modal">
+      <div class="modal-card">
+        <span class="modal-close" onclick="closePlayerModal()">×</span>
+        <div class="modal-title" id="p-modal-name">Jugador</div>
+        <div class="modal-subtitle" id="p-modal-team">Equipo</div>
+        <div id="p-modal-stats"></div>
+      </div>
+    </div>
   </div>
 
   <script>
     let agendaMatches = [];
     let activeMatch = null;
+    let matchTimerInterval = null;
+    let currentMinutes = 0;
+    let isMatchLive = false;
+    let rosterCache = {};
 
     function toggleAgenda() {
       const drop = document.getElementById('dropdown-agenda');
@@ -285,6 +317,19 @@ app.get('*', (req, res) => {
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       evt.currentTarget.classList.add('active');
       document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    // Cronómetro local independiente de la API para que el minutero no se frene
+    function startLocalClock(initialClock) {
+      clearInterval(matchTimerInterval);
+      currentMinutes = parseInt(initialClock) || 0;
+      
+      if (!isMatchLive) return;
+
+      matchTimerInterval = setInterval(() => {
+        currentMinutes += 1;
+        document.getElementById('txt-tiempo').innerText = currentMinutes + "'";
+      }, 60000);
     }
 
     async function loadWidgetData() {
@@ -316,6 +361,13 @@ app.get('*', (req, res) => {
 
         if (!activeMatch && data.mainMatch) {
           selectMatch(data.mainMatch.id);
+        } else if (activeMatch) {
+          // Actualización silenciosa de marcador si hay un partido activo
+          const fresh = agendaMatches.find(m => m.id === activeMatch.id);
+          if (fresh) {
+            document.getElementById('num-goles-home').innerText = fresh.golesLocal;
+            document.getElementById('num-goles-away').innerText = fresh.golesVisitante;
+          }
         }
 
         const tbody = document.getElementById('tbody-posiciones');
@@ -357,25 +409,52 @@ app.get('*', (req, res) => {
       document.getElementById('img-away').src = activeMatch.logoVisitante;
       document.getElementById('num-goles-home').innerText = activeMatch.golesLocal;
       document.getElementById('num-goles-away').innerText = activeMatch.golesVisitante;
+      
+      isMatchLive = activeMatch.enVivo;
       document.getElementById('txt-tiempo').innerText = activeMatch.estado.replace('🔴 ', '');
+      startLocalClock(activeMatch.displayClock);
 
       try {
         const summaryUrl = \`https://site.api.espn.com/apis/site/v2/sports/soccer/\${activeMatch.leagueSlug}/summary?event=\${activeMatch.id}\`;
         const sumRes = await fetch(summaryUrl).then(r => r.ok ? r.json() : null);
 
-        let possessionHome = 50;
-        let possessionAway = 50;
+        // 1. Extraer Goles y Tarjetas
+        const homeEvents = [];
+        const awayEvents = [];
+        const homeId = sumRes?.boxscore?.teams?.[0]?.team?.id;
 
+        if (sumRes && sumRes.keyEvents) {
+          sumRes.keyEvents.forEach(evt => {
+            const min = evt.clock?.displayValue || evt.time || '';
+            const type = evt.type?.text?.toLowerCase() || '';
+            const player = evt.participants?.[0]?.athlete?.displayName || evt.text || '';
+            const tId = evt.team?.id;
+
+            let icon = '';
+            if (type.includes('goal') || type.includes('gol')) icon = '⚽';
+            else if (type.includes('yellow') || type.includes('amarilla')) icon = '🟨';
+            else if (type.includes('red') || type.includes('roja')) icon = '🟥';
+
+            if (icon) {
+              const str = \`\${icon} \${player} \${min ? '(' + min + "')" : ''}\`;
+              if (tId === homeId) homeEvents.push(str);
+              else awayEvents.push(str);
+            }
+          });
+        }
+
+        document.getElementById('events-home-list').innerHTML = homeEvents.map(e => \`<span>\${e}</span>\`).join('');
+        document.getElementById('events-away-list').innerHTML = awayEvents.map(e => \`<span>\${e}</span>\`).join('');
+
+        // 2. Estadísticas generales
+        let posH = 50, posA = 50;
         if (sumRes && sumRes.boxscore && sumRes.boxscore.teams) {
           const homeStats = sumRes.boxscore.teams[0]?.statistics || [];
           const awayStats = sumRes.boxscore.teams[1]?.statistics || [];
-
           const getStat = (stats, name) => stats.find(s => s.name === name || s.label === name)?.displayValue || '0';
 
-          const posH = parseFloat(getStat(homeStats, 'possessionPct')) || 50;
-          const posA = parseFloat(getStat(awayStats, 'possessionPct')) || 50;
-          possessionHome = posH;
-          possessionAway = posA;
+          posH = parseFloat(getStat(homeStats, 'possessionPct')) || 50;
+          posA = parseFloat(getStat(awayStats, 'possessionPct')) || 50;
 
           const statsList = [
             { label: 'Posesión', home: posH + '%', away: posA + '%' },
@@ -408,45 +487,88 @@ app.get('*', (req, res) => {
           }).join('');
         }
 
-        const heatH = document.getElementById('heat-home');
-        const heatA = document.getElementById('heat-away');
-        
-        const sizeH = Math.min(180, Math.max(70, possessionHome * 2.2));
-        const sizeA = Math.min(180, Math.max(70, possessionAway * 2.2));
+        // Mapa de calor basado en la posesión
+        const sizeH = Math.min(160, Math.max(60, posH * 2.2));
+        const sizeA = Math.min(160, Math.max(60, posA * 2.2));
+        document.getElementById('heat-home').style.width = \`\${sizeH}px\`;
+        document.getElementById('heat-home').style.height = \`\${sizeH}px\`;
+        document.getElementById('heat-away').style.width = \`\${sizeA}px\`;
+        document.getElementById('heat-away').style.height = \`\${sizeA}px\`;
 
-        heatH.style.width = \`\${sizeH}px\`;
-        heatH.style.height = \`\${sizeH}px\`;
-        heatA.style.width = \`\${sizeA}px\`;
-        heatA.style.height = \`\${sizeA}px\`;
-
-        document.getElementById('legend-home').innerText = \`\${activeMatch.local}: \${possessionHome}% Dominio territorial\`;
-        document.getElementById('legend-away').innerText = \`\${activeMatch.visitante}: \${possessionAway}% Dominio territorial\`;
-
+        // 3. Alineaciones e interacción de jugadores
+        rosterCache = {};
         if (sumRes && sumRes.rosters) {
-          const hRoster = sumRes.rosters[0]?.roster || [];
-          const aRoster = sumRes.rosters[1]?.roster || [];
-
           document.getElementById('lineup-home-title').innerText = activeMatch.local;
           document.getElementById('lineup-away-title').innerText = activeMatch.visitante;
 
-          const renderRoster = (list) => list.length 
-            ? list.slice(0, 11).map(p => \`<div class="player-row"><span class="player-num">\${p.jersey || '-'}</span> <span>\${p.athlete?.displayName || 'Jugador'}</span></div>\`).join('')
-            : '<p style="font-size:0.8rem; color:#70757a;">Alineación sin confirmar</p>';
+          const renderRosterList = (rosterData, teamName, containerId) => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
 
-          document.getElementById('lineup-home-list').innerHTML = renderRoster(hRoster);
-          document.getElementById('lineup-away-list').innerHTML = renderRoster(aRoster);
+            const list = rosterData?.roster || [];
+            if (!list.length) {
+              container.innerHTML = '<p style="font-size:0.8rem; color:#70757a;">Alineación no disponible</p>';
+              return;
+            }
+
+            list.slice(0, 11).forEach((p, idx) => {
+              const pid = p.athlete?.id || \`p_\${idx}\`;
+              rosterCache[pid] = {
+                name: p.athlete?.displayName || 'Jugador',
+                jersey: p.jersey || '-',
+                position: p.position?.displayName || 'Jugador',
+                team: teamName,
+                stats: p.stats || []
+              };
+
+              const row = document.createElement('div');
+              row.className = 'player-row';
+              row.innerHTML = \`<span class="player-num">\${p.jersey || '-'}</span> <span>\${p.athlete?.displayName || 'Jugador'}</span>\`;
+              row.onclick = () => openPlayerModal(pid);
+              container.appendChild(row);
+            });
+          };
+
+          renderRosterList(sumRes.rosters[0], activeMatch.local, 'lineup-home-list');
+          renderRosterList(sumRes.rosters[1], activeMatch.visitante, 'lineup-away-list');
         }
 
       } catch (e) {
-        console.error("Error cargando detalles:", e);
+        console.error("Error cargando detalles del partido:", e);
       }
     }
 
+    function openPlayerModal(playerId) {
+      const player = rosterCache[playerId];
+      if (!player) return;
+
+      document.getElementById('p-modal-name').innerText = \`#\${player.jersey} \${player.name}\`;
+      document.getElementById('p-modal-team').innerText = \`\${player.team} - \${player.position}\`;
+
+      const statsContainer = document.getElementById('p-modal-stats');
+      if (player.stats && player.stats.length > 0) {
+        statsContainer.innerHTML = player.stats.map(s => \`
+          <div class="modal-stat-item">
+            <span style="color:#70757a;">\${s.label || s.name || 'Estadística'}</span>
+            <strong>\${s.displayValue || s.value || '0'}</strong>
+          </div>
+        \`).join('');
+      } else {
+        statsContainer.innerHTML = '<p style="font-size:0.82rem; color:#70757a; text-align:center; padding:10px 0;">Sin registros estadísticos en este partido.</p>';
+      }
+
+      document.getElementById('player-modal').style.display = 'flex';
+    }
+
+    function closePlayerModal() {
+      document.getElementById('player-modal').style.display = 'none';
+    }
+
     loadWidgetData();
-    setInterval(loadWidgetData, 15000);
+    setInterval(loadWidgetData, 30000);
   </script>
 </body>
 </html>`);
 });
 
-app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor en ejecución en el puerto ${PORT}`));
