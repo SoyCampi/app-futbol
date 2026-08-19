@@ -3,8 +3,6 @@ const https = require('https');
 
 const app = express();
 
-const API_KEY = 'c617284c9amsh85e0674d8d84794p15d8adjsn647e0bdfdb55';
-
 function formatearHoraArgentina(utcDateStr) {
   if (!utcDateStr) return 'A confirmar';
   try {
@@ -20,96 +18,92 @@ function formatearHoraArgentina(utcDateStr) {
   }
 }
 
-function obtenerAgendaHoy() {
+function consultarESPN(url) {
   return new Promise((resolve) => {
-    // Generar la fecha de hoy en Argentina (YYYY-MM-DD)
-    const fechaObj = new Date();
-    const hoyStr = fechaObj.toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
-
-    const options = {
-      hostname: 'api-football-v1.p.rapidapi.com',
-      path: `/v3/fixtures?date=${hoyStr}`,
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
-      }
-    };
-
-    const req = https.request(options, (res) => {
+    https.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        const fechaHeader = new Date().toLocaleDateString('es-AR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          timeZone: 'America/Argentina/Buenos_Aires'
-        });
-
         try {
-          const json = JSON.parse(data);
-          if (json.response && json.response.length > 0) {
-            const partidos = json.response.map((item) => {
-              const fixture = item.fixture;
-              const league = item.league;
-              const teams = item.teams;
-              const goals = item.goals;
-              const statusShort = fixture.status ? fixture.status.short : 'NS';
-
-              const enVivo = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE'].includes(statusShort);
-              const finalizado = ['FT', 'AET', 'PEN'].includes(statusShort);
-              const horaLocal = formatearHoraArgentina(fixture.date);
-
-              return {
-                id: fixture.id,
-                liga: `${league.country ? league.country + ' - ' : ''}${league.name}`,
-                local: teams.home.name,
-                logoLocal: teams.home.logo,
-                visitante: teams.away.name,
-                logoVisitante: teams.away.logo,
-                golesLocal: goals.home !== null ? goals.home : '-',
-                golesVisitante: goals.away !== null ? goals.away : '-',
-                hora: horaLocal,
-                enVivo: enVivo,
-                finalizado: finalizado,
-                minuto: fixture.status.elapsed ? fixture.status.elapsed + "'" : null,
-                estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
-              };
-            });
-
-            // Ordenar por partidos en vivo primero, luego por horario
-            partidos.sort((a, b) => (b.enVivo - a.enVivo) || a.hora.localeCompare(b.hora));
-
-            return resolve({ fecha: fechaHeader, partidos: partidos });
-          }
-        } catch (e) {}
-
-        resolve({ fecha: fechaHeader, partidos: [] });
+          resolve(JSON.parse(data));
+        } catch (e) {
+          resolve(null);
+        }
       });
-    });
-
-    req.on('error', () => {
-      const fechaHeader = new Date().toLocaleDateString('es-AR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'America/Argentina/Buenos_Aires'
-      });
-      resolve({ fecha: fechaHeader, partidos: [] });
-    });
-
-    req.end();
+    }).on('error', () => resolve(null));
   });
 }
 
-// API Route
+async function obtenerAgendaHoy() {
+  const fechaObj = new Date();
+  const hoyStr = fechaObj.toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' }).replace(/-/g, '');
+  const fechaHeader = new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Argentina/Buenos_Aires'
+  });
+
+  // Endpoints públicos oficiales de ESPN (Agenda de Fútbol)
+  const urls = [
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${hoyStr}`,
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?dates=${hoyStr}`
+  ];
+
+  const resultados = await Promise.all(urls.map(consultarESPN));
+  const partidosMap = new Map();
+
+  resultados.forEach(json => {
+    if (json && json.events && json.events.length > 0) {
+      const nombreLigaGlobal = json.leagues && json.leagues[0] ? json.leagues[0].name : 'Fútbol Profesional';
+      
+      json.events.forEach(item => {
+        if (partidosMap.has(item.id)) return;
+
+        const comp = item.competitions && item.competitions[0];
+        if (!comp) return;
+
+        const homeTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'home') : null;
+        const awayTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'away') : null;
+
+        const statusState = item.status && item.status.type ? item.status.type.state : 'pre';
+        const enVivo = statusState === 'in';
+        const finalizado = statusState === 'post';
+        const horaLocal = formatearHoraArgentina(item.date);
+
+        partidosMap.set(item.id, {
+          id: item.id,
+          liga: json.leagues && json.leagues[0] ? json.leagues[0].name : nombreLigaGlobal,
+          local: homeTeam && homeTeam.team ? homeTeam.team.shortDisplayName || homeTeam.team.displayName : 'Local',
+          logoLocal: homeTeam && homeTeam.team ? homeTeam.team.logo || '' : '',
+          visitante: awayTeam && awayTeam.team ? awayTeam.team.shortDisplayName || awayTeam.team.displayName : 'Visitante',
+          logoVisitante: awayTeam && awayTeam.team ? awayTeam.team.logo || '' : '',
+          golesLocal: homeTeam && homeTeam.score !== undefined ? homeTeam.score : '-',
+          golesVisitante: awayTeam && awayTeam.score !== undefined ? awayTeam.score : '-',
+          hora: horaLocal,
+          enVivo: enVivo,
+          finalizado: finalizado,
+          minuto: item.status && item.status.displayClock ? item.status.displayClock + "'" : null,
+          estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
+        });
+      });
+    }
+  });
+
+  const partidos = Array.from(partidosMap.values());
+  // Ordenar por partidos en vivo primero, luego por horario de inicio
+  partidos.sort((a, b) => (b.enVivo - a.enVivo) || a.hora.localeCompare(b.hora));
+
+  return { fecha: fechaHeader, partidos: partidos };
+}
+
+// Endpoint API local
 app.get('/api/partidos', async (req, res) => {
   const data = await obtenerAgendaHoy();
   res.json(data);
 });
 
-// App Frontend HTML
+// Interfaz Web Frontend
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="es">
@@ -134,7 +128,7 @@ app.get('/', (req, res) => {
     .team-left { justify-content: flex-start; text-align: left; }
     .team-right { justify-content: flex-end; text-align: right; }
     
-    .club-logo { width: 26px; height: 26px; object-fit: contain; }
+    .club-logo { width: 28px; height: 28px; object-fit: contain; }
     .team-name { font-size: 0.9rem; font-weight: 600; line-height: 1.2; }
     .score { color: #fff; font-size: 1.1rem; font-weight: 800; background: #121212; padding: 4px 10px; border-radius: 6px; border: 1px solid #333; }
     
@@ -186,13 +180,13 @@ app.get('/', (req, res) => {
             <div class="league-title">\${p.liga}</div>
             <div class="teams-container">
               <div class="team-box team-left">
-                <img src="\${p.logoLocal}" class="club-logo" alt="" onerror="this.style.display='none'">
+                \${p.logoLocal ? \`<img src="\${p.logoLocal}" class="club-logo" alt="" onerror="this.style.display='none'">\` : ''}
                 <span class="team-name">\${p.local}</span>
               </div>
               <span class="score">\${p.golesLocal} : \${p.golesVisitante}</span>
               <div class="team-box team-right">
                 <span class="team-name">\${p.visitante}</span>
-                <img src="\${p.logoVisitante}" class="club-logo" alt="" onerror="this.style.display='none'">
+                \${p.logoVisitante ? \`<img src="\${p.logoVisitante}" class="club-logo" alt="" onerror="this.style.display='none'">\` : ''}
               </div>
             </div>
             <div class="status-container">
