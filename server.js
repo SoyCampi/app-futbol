@@ -1,16 +1,105 @@
 const express = require('express');
-const http = require('http');
 const https = require('https');
-const WebSocket = require('ws');
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
 const API_KEY = 'c617284c9amsh85e0674d8d84794p15d8adjsn647e0bdfdb55';
 
-// Interfaz Web de Agenda de Hoy con Actualización Continua
-const HTML_APP = `<!DOCTYPE html>
+// Función para formatear la hora a Argentina
+function formatearHoraArgentina(utcDateStr, utcTimeStr) {
+  if (!utcTimeStr) return 'A confirmar';
+  try {
+    const fullIso = `${utcDateStr}T${utcTimeStr}Z`;
+    const dateObj = new Date(fullIso);
+    return dateObj.toLocaleTimeString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch (e) {
+    return utcTimeStr.substring(0, 5);
+  }
+}
+
+// Función principal de consulta a la API oficial
+function obtenerAgendaHoy() {
+  return new Promise((resolve) => {
+    const hoy = new Date().toISOString().split('T')[0];
+
+    const options = {
+      hostname: 'thesportsdb.p.rapidapi.com',
+      path: `/eventsday.php?d=${hoy}&s=Soccer`,
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'thesportsdb.p.rapidapi.com'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const fechaStr = new Date().toLocaleDateString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          timeZone: 'America/Argentina/Buenos_Aires'
+        });
+
+        try {
+          const json = JSON.parse(data);
+          if (json.events && json.events.length > 0) {
+            const partidos = json.events.map((p) => {
+              const horaLocal = formatearHoraArgentina(p.dateEvent || hoy, p.strTime);
+              const enVivo = p.strStatus === 'In Progress' || (p.strProgress && p.strProgress !== '');
+              const finalizado = p.strStatus === 'Match Finished' || p.strStatus === 'FT';
+
+              return {
+                id: p.idEvent,
+                liga: p.strLeague || 'Fútbol',
+                local: p.strHomeTeam || 'Local',
+                visitante: p.strAwayTeam || 'Visitante',
+                golesLocal: p.intHomeScore !== null && p.intHomeScore !== "" ? parseInt(p.intHomeScore) : null,
+                golesVisitante: p.intAwayScore !== null && p.intAwayScore !== "" ? parseInt(p.intAwayScore) : null,
+                hora: horaLocal,
+                enVivo: enVivo,
+                finalizado: finalizado,
+                minuto: p.strProgress || null,
+                estadoText: enVivo ? 'En disputa' : (finalizado ? 'Partido terminado' : 'Programado')
+              };
+            });
+            return resolve({ fecha: fechaStr, partidos: partidos });
+          }
+        } catch (e) {}
+
+        resolve({ fecha: fechaStr, partidos: [] });
+      });
+    });
+
+    req.on('error', () => {
+      const fechaStr = new Date().toLocaleDateString('es-AR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        timeZone: 'America/Argentina/Buenos_Aires'
+      });
+      resolve({ fecha: fechaStr, partidos: [] });
+    });
+    
+    req.end();
+  });
+}
+
+// Endpoint JSON para la app
+app.get('/api/partidos', async (req, res) => {
+  const data = await obtenerAgendaHoy();
+  res.json(data);
+});
+
+// Interfaz HTML Frontend
+app.get('/', (req, res) => {
+  res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -21,7 +110,7 @@ const HTML_APP = `<!DOCTYPE html>
     .container { max-width: 440px; margin: 0 auto; }
     .header { text-align: center; margin-bottom: 20px; }
     h2 { font-size: 1.3rem; color: #00ff88; margin: 5px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .date-badge { font-size: 0.85rem; color: #aaa; background: #1e1e1e; padding: 4px 12px; border-radius: 12px; display: inline-block; border: 1px solid #333; }
+    .date-badge { font-size: 0.85rem; color: #aaa; background: #1e1e1e; padding: 4px 12px; border-radius: 12px; display: inline-block; border: 1px solid #333; text-transform: capitalize; }
     .pulse { width: 10px; height: 10px; background: #00ff88; border-radius: 50%; display: inline-block; animation: blink 1.5s infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     
@@ -42,21 +131,24 @@ const HTML_APP = `<!DOCTYPE html>
 <body>
   <div class="container">
     <div class="header">
-      <h2><span class="pulse"></span> Agenda de Hoy</h2>
+      <h2><span class="pulse"></span> Agenda Real de Hoy</h2>
       <div id="fecha-hoy" class="date-badge">Cargando fecha...</div>
     </div>
-    <div id="matches-container">Obteniendo fixture en vivo...</div>
+    <div id="matches-container">Obteniendo partidos...</div>
   </div>
 
   <script>
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(\`\${protocol}//\${location.host}\`);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      document.getElementById('fecha-hoy').innerText = data.fecha;
-      renderizarAgenda(data.partidos);
-    };
+    async function cargarPartidos() {
+      try {
+        const res = await fetch('/api/partidos');
+        const data = await res.json();
+        
+        document.getElementById('fecha-hoy').innerText = data.fecha;
+        renderizarAgenda(data.partidos);
+      } catch (err) {
+        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#888;">Error al actualizar la agenda. Reintentando...</p>';
+      }
+    }
 
     function renderizarAgenda(partidos) {
       const container = document.getElementById('matches-container');
@@ -89,113 +181,14 @@ const HTML_APP = `<!DOCTYPE html>
         \`;
       }).join('');
     }
+
+    // Carga inicial inmediata y refresco automático cada 10 segundos
+    cargarPartidos();
+    setInterval(cargarPartidos, 10000);
   </script>
 </body>
-</html>`;
-
-app.use((req, res) => res.send(HTML_APP));
-
-function formatearHoraArgentina(utcDateStr, utcTimeStr) {
-  if (!utcTimeStr) return 'A confirmar';
-  try {
-    const fullIso = `${utcDateStr}T${utcTimeStr}Z`;
-    const dateObj = new Date(fullIso);
-    return dateObj.toLocaleTimeString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  } catch (e) {
-    return utcTimeStr.substring(0, 5);
-  }
-}
-
-function obtenerAgendaHoy() {
-  return new Promise((resolve) => {
-    const hoy = new Date().toISOString().split('T')[0];
-
-    const options = {
-      hostname: 'thesportsdb.p.rapidapi.com',
-      path: `/eventsday.php?d=${hoy}&s=Soccer`,
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'thesportsdb.p.rapidapi.com'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.events && json.events.length > 0) {
-            const partidos = json.events.map((p) => {
-              const horaLocal = formatearHoraArgentina(p.dateEvent || hoy, p.strTime);
-              const enVivo = p.strStatus === 'In Progress' || (p.strProgress && p.strProgress !== '');
-              const finalizado = p.strStatus === 'Match Finished' || p.strStatus === 'FT';
-
-              return {
-                id: p.idEvent,
-                liga: p.strLeague || 'Fútbol',
-                local: p.strHomeTeam || 'Local',
-                visitante: p.strAwayTeam || 'Visitante',
-                golesLocal: p.intHomeScore !== null && p.intHomeScore !== "" ? parseInt(p.intHomeScore) : null,
-                golesVisitante: p.intAwayScore !== null && p.intAwayScore !== "" ? parseInt(p.intAwayScore) : null,
-                hora: horaLocal,
-                enVivo: enVivo,
-                finalizado: finalizado,
-                minuto: p.strProgress || null,
-                estadoText: enVivo ? 'En disputa' : (finalizado ? 'Partido terminado' : 'Programado')
-              };
-            });
-
-            // Formatear la fecha actual de forma legible para la cabecera
-            const fechaStr = new Date().toLocaleDateString('es-AR', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              timeZone: 'America/Argentina/Buenos_Aires'
-            });
-
-            return resolve({ fecha: fechaStr, partidos: partidos });
-          }
-        } catch (e) {}
-        
-        const fechaStr = new Date().toLocaleDateString('es-AR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          timeZone: 'America/Argentina/Buenos_Aires'
-        });
-        resolve({ fecha: fechaStr, partidos: [] });
-      });
-    });
-
-    req.on('error', () => {
-      const fechaStr = new Date().toLocaleDateString('es-AR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'America/Argentina/Buenos_Aires'
-      });
-      resolve({ fecha: fechaStr, partidos: [] });
-    });
-    
-    req.end();
-  });
-}
-
-// Consultar la API cada 10 segundos y transmitir a todos los dispositivos conectados
-setInterval(async () => {
-  const agendaData = await obtenerAgendaHoy();
-  const payload = JSON.stringify(agendaData);
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) client.send(payload);
-  });
-}, 10000);
+</html>`);
+});
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));
