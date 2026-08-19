@@ -39,24 +39,37 @@ app.get('*', (req, res) => {
     .click-hint { font-size: 0.7rem; color: #00ff88; font-weight: 600; }
 
     /* Modal centrado */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
-    .modal-content { background: #18181b; width: 100%; max-width: 440px; max-height: 85vh; border-radius: 16px; padding: 20px; overflow-y: auto; border: 1px solid #00ff88; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 15px; }
+    .modal-content { background: #18181b; width: 100%; max-width: 460px; max-height: 88vh; border-radius: 16px; padding: 18px; overflow-y: auto; border: 1px solid #00ff88; box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; }
+    .close-btn { position: absolute; top: 12px; right: 15px; background: #2f2f35; color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; z-index: 10; }
     
-    .close-btn { position: absolute; top: 12px; right: 15px; background: #2f2f35; color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; }
-    .modal-header { text-align: center; margin-bottom: 15px; }
-    
-    .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 0.85rem; border-bottom: 1px solid #26262c; padding-bottom: 4px; }
+    /* Pestañas */
+    .tab-container { display: flex; border-bottom: 1px solid #2f2f35; margin-bottom: 15px; }
+    .tab-btn { flex: 1; padding: 8px; background: none; border: none; color: #888; font-weight: bold; cursor: pointer; font-size: 0.8rem; border-bottom: 2px solid transparent; }
+    .tab-btn.active { color: #00ff88; border-bottom-color: #00ff88; }
 
-    /* Cancha Táctica y Mapa de Calor */
-    .pitch-container { position: relative; width: 100%; height: 180px; background: #1b381e; border: 2px solid #2e5c33; border-radius: 10px; margin: 15px 0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-    .pitch-line-center { position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.3); top: 50%; }
-    .pitch-circle { position: absolute; width: 60px; height: 60px; border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; top: calc(50% - 30px); }
-    .pitch-box-top { position: absolute; width: 100px; height: 35px; border: 1px solid rgba(255,255,255,0.3); border-top: none; top: 0; }
-    .pitch-box-bottom { position: absolute; width: 100px; height: 35px; border: 1px solid rgba(255,255,255,0.3); border-bottom: none; bottom: 0; }
+    /* Cancha Táctica */
+    .pitch { position: relative; width: 100%; height: 320px; background: #17381d; border: 2px solid #2e5c33; border-radius: 12px; overflow: hidden; margin: 10px 0; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0; }
+    .pitch-line-center { position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.25); top: 50%; }
+    .pitch-circle { position: absolute; width: 70px; height: 70px; border: 1px solid rgba(255,255,255,0.25); border-radius: 50%; top: calc(50% - 35px); left: calc(50% - 35px); }
     
-    .heat-zone { position: absolute; border-radius: 50%; filter: blur(12px); opacity: 0.75; transition: all 0.5s ease; }
-    .heat-home { background: radial-gradient(circle, rgba(0,255,136,0.9) 0%, rgba(0,255,136,0) 70%); }
-    .heat-away { background: radial-gradient(circle, rgba(255,0,85,0.9) 0%, rgba(255,0,85,0) 70%); }
+    .team-pitch-half { height: 48%; display: flex; flex-direction: column; justify-content: space-around; position: relative; }
+    .tactical-row { display: flex; justify-content: space-around; align-items: center; width: 100%; }
+    
+    .player-node { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.15s; position: relative; }
+    .player-node:hover { transform: scale(1.15); }
+    .player-shirt { width: 22px; height: 22px; border-radius: 50%; background: #00ff88; color: #000; font-size: 0.7rem; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+    .player-away .player-shirt { background: #ff0055; color: #fff; }
+    .player-name { font-size: 0.65rem; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; max-width: 65px; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .card-badge { position: absolute; top: -3px; right: -3px; width: 8px; height: 11px; border-radius: 1px; }
+    .card-yellow { background: #ffcc00; }
+    .card-red { background: #ff0055; }
+
+    /* Pop-up / Card de Jugador Individual */
+    .player-card-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; background: #222226; border: 1px solid #00ff88; border-radius: 12px; padding: 15px; z-index: 1100; box-shadow: 0 8px 25px rgba(0,0,0,0.9); }
+    .player-card-header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 10px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; }
+    .stat-item { background: #18181b; padding: 6px 10px; border-radius: 6px; border: 1px solid #2f2f35; }
   </style>
 </head>
 <body>
@@ -68,37 +81,41 @@ app.get('*', (req, res) => {
     <div id="matches-container">Consultando partidos...</div>
   </div>
 
+  <!-- Modal Principal -->
   <div id="stats-modal" class="modal-overlay" onclick="cerrarModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="close-btn" onclick="cerrarModalDirecto()">✕</button>
-      <div id="modal-body">Cargando estadísticas en tiempo real...</div>
+      
+      <div class="tab-container">
+        <button id="tab-general-btn" class="tab-btn active" onclick="cambiarTab('general')">📊 Stats & Heatmap</button>
+        <button id="tab-lineups-btn" class="tab-btn" onclick="cambiarTab('lineups')">📋 Campo & Formaciones</button>
+      </div>
+
+      <div id="modal-body-general">Cargando...</div>
+      <div id="modal-body-lineups" style="display:none;">Cargando formaciones...</div>
+
+      <!-- Card Flotante de Jugador -->
+      <div id="player-card" class="player-card-modal">
+        <button style="position:absolute; right:10px; top:10px; background:none; border:none; color:#aaa; cursor:pointer;" onclick="cerrarPlayerCard()">✕</button>
+        <div id="player-card-content"></div>
+      </div>
     </div>
   </div>
 
   <script>
+    let globalMatchData = null;
+
     function formatearHoraAR(dateStr) {
       if (!dateStr) return 'A confirmar';
       try {
         const d = new Date(dateStr);
-        return d.toLocaleTimeString('es-AR', {
-          timeZone: 'America/Argentina/Buenos_Aires',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
+        return d.toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hour12: false });
       } catch (e) { return 'A confirmar'; }
     }
 
     async function cargarAgendaDirecta() {
       const hoyStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' }).replace(/-/g, '');
-      const fechaHeader = new Date().toLocaleDateString('es-AR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'America/Argentina/Buenos_Aires'
-      });
-
-      document.getElementById('fecha-hoy').innerText = fechaHeader;
+      document.getElementById('fecha-hoy').innerText = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });
 
       const endpoints = [
         \`https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=\${hoyStr}\`,
@@ -113,201 +130,267 @@ app.get('*', (req, res) => {
         const partidosMap = new Map();
 
         respuestas.forEach(json => {
-          if (json && json.events && Array.isArray(json.events)) {
-            const nombreLiga = (json.leagues && json.leagues[0]) ? json.leagues[0].name : 'Fútbol Profesional';
-
+          if (json && json.events) {
             json.events.forEach(item => {
               if (!item || partidosMap.has(item.id)) return;
-
               const comp = item.competitions && item.competitions[0];
               if (!comp) return;
+              const home = comp.competitors ? comp.competitors.find(c => c.homeAway === 'home') : null;
+              const away = comp.competitors ? comp.competitors.find(c => c.homeAway === 'away') : null;
+              if (!home || !away) return;
 
-              const homeTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'home') : null;
-              const awayTeam = comp.competitors ? comp.competitors.find(c => c.homeAway === 'away') : null;
-
-              if (!homeTeam || !awayTeam) return;
-
-              const statusState = (item.status && item.status.type) ? item.status.type.state : 'pre';
-              const enVivo = statusState === 'in';
-              const finalizado = statusState === 'post';
-
+              const statusState = item.status?.type?.state || 'pre';
               partidosMap.set(item.id, {
                 id: item.id,
-                liga: (json.leagues && json.leagues[0]) ? json.leagues[0].name : nombreLiga,
-                local: homeTeam.team ? (homeTeam.team.shortDisplayName || homeTeam.team.name) : 'Local',
-                logoLocal: homeTeam.team && homeTeam.team.logo ? homeTeam.team.logo : 'https://a.espncdn.com/i/teamlogos/default-team-logo.png',
-                visitante: awayTeam.team ? (awayTeam.team.shortDisplayName || awayTeam.team.name) : 'Visitante',
-                logoVisitante: awayTeam.team && awayTeam.team.logo ? awayTeam.team.logo : 'https://a.espncdn.com/i/teamlogos/default-team-logo.png',
-                golesLocal: (homeTeam.score !== undefined && homeTeam.score !== null) ? homeTeam.score : '-',
-                golesVisitante: (awayTeam.score !== undefined && awayTeam.score !== null) ? awayTeam.score : '-',
+                liga: json.leagues?.[0]?.name || 'Fútbol',
+                local: home.team?.shortDisplayName || home.team?.name || 'Local',
+                logoLocal: home.team?.logo || '',
+                visitante: away.team?.shortDisplayName || away.team?.name || 'Visitante',
+                logoVisitante: away.team?.logo || '',
+                golesLocal: home.score ?? '-',
+                golesVisitante: away.score ?? '-',
                 hora: formatearHoraAR(item.date),
-                enVivo: enVivo,
-                finalizado: finalizado,
-                minuto: (item.status && item.status.displayClock) ? item.status.displayClock + "'" : null,
-                estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
+                enVivo: statusState === 'in',
+                finalizado: statusState === 'post',
+                minuto: item.status?.displayClock ? item.status.displayClock + "'" : null,
+                estadoText: statusState === 'in' ? 'En juego' : (statusState === 'post' ? 'Finalizado' : 'Programado')
               });
             });
           }
         });
 
-        const partidos = Array.from(partidosMap.values());
-        partidos.sort((a, b) => (b.enVivo - a.enVivo) || a.hora.localeCompare(b.hora));
-
-        renderizarAgenda(partidos);
+        renderizarAgenda(Array.from(partidosMap.values()).sort((a,b) => (b.enVivo - a.enVivo) || a.hora.localeCompare(b.hora)));
       } catch (err) {
-        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#adadb8;">Actualizando conexión...</p>';
+        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#adadb8;">Cargando datos...</p>';
       }
     }
 
     function renderizarAgenda(partidos) {
       const container = document.getElementById('matches-container');
-      if (!partidos || partidos.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#adadb8; padding: 30px 0;">No hay encuentros agendados hoy.</p>';
+      if (!partidos.length) {
+        container.innerHTML = '<p style="text-align:center; color:#adadb8; padding:30px 0;">No hay encuentros agendados hoy.</p>';
         return;
       }
 
-      container.innerHTML = partidos.map(p => {
-        let badgeEstado = \`<span class="time-badge">⏰ \${p.hora} hs</span>\`;
-        if (p.enVivo) {
-          badgeEstado = \`<span class="live-badge">🔴 EN VIVO \${p.minuto ? "(" + p.minuto + ")" : ""}</span>\`;
-        } else if (p.finalizado) {
-          badgeEstado = \`<span class="finished-badge">FINALIZADO</span>\`;
-        }
-
-        return \`
-          <div class="match-card" onclick="abrirEstadisticas('\${p.id}')">
-            <div class="league-title">
-              <span>\${p.liga}</span>
-              <span class="click-hint">Ver stats & heatmap 🔥</span>
+      container.innerHTML = partidos.map(p => \`
+        <div class="match-card" onclick="abrirEstadisticas('\${p.id}')">
+          <div class="league-title">
+            <span>\${p.liga}</span>
+            <span class="click-hint">Ver stats & campo 📋</span>
+          </div>
+          <div class="teams-container">
+            <div class="team-box team-left">
+              <img src="\${p.logoLocal}" class="club-logo" alt="">
+              <span class="team-name">\${p.local}</span>
             </div>
-            <div class="teams-container">
-              <div class="team-box team-left">
-                <img src="\${p.logoLocal}" class="club-logo" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png'">
-                <span class="team-name">\${p.local}</span>
-              </div>
-              <span class="score">\${p.golesLocal} : \${p.golesVisitante}</span>
-              <div class="team-box team-right">
-                <span class="team-name">\${p.visitante}</span>
-                <img src="\${p.logoVisitante}" class="club-logo" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png'">
-              </div>
-            </div>
-            <div class="status-container">
-              \${badgeEstado}
-              <span style="color: #888;">\${p.estadoText}</span>
+            <span class="score">\${p.golesLocal} : \${p.golesVisitante}</span>
+            <div class="team-box team-right">
+              <span class="team-name">\${p.visitante}</span>
+              <img src="\${p.logoVisitante}" class="club-logo" alt="">
             </div>
           </div>
-        \`;
-      }).join('');
+          <div class="status-container">
+            \${p.enVivo ? \`<span class="live-badge">🔴 EN VIVO \${p.minuto || ''}</span>\` : (p.finalizado ? '<span class="finished-badge">FINALIZADO</span>' : \`<span class="time-badge">⏰ \${p.hora} hs</span>\`)}
+            <span style="color:#888;">\${p.estadoText}</span>
+          </div>
+        </div>
+      \`).join('');
     }
 
     async function abrirEstadisticas(matchId) {
-      const modal = document.getElementById('stats-modal');
-      const modalBody = document.getElementById('modal-body');
-      modal.style.display = 'flex';
-      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando mapa de calor y estadísticas...</p>';
+      document.getElementById('stats-modal').style.display = 'flex';
+      cambiarTab('general');
+      document.getElementById('modal-body-general').innerHTML = '<p style="text-align:center; color:#00ff88; padding:20px 0;">Cargando datos...</p>';
+      document.getElementById('modal-body-lineups').innerHTML = '<p style="text-align:center; color:#00ff88; padding:20px 0;">Cargando alineaciones...</p>';
 
       try {
         const res = await fetch(\`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=\${matchId}\`);
-        if (!res.ok) throw new Error('Api error');
-        const json = await res.json();
-
-        const boxscore = json.boxscore;
-        const header = json.header;
-        const comp = header && header.competitions ? header.competitions[0] : null;
-
-        if (!comp) {
-          modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">Detalles no disponibles temporalmente.</p>';
-          return;
-        }
-
-        const home = comp.competitors.find(c => c.homeAway === 'home');
-        const away = comp.competitors.find(c => c.homeAway === 'away');
-
-        let htmlStats = \`
-          <div class="modal-header">
-            <h3 style="margin:0 0 10px 0; font-size:1rem; color:#00ff88;">\${header.league ? header.league.name : 'Estadísticas'}</h3>
-            <div style="display:flex; justify-content:space-around; align-items:center; margin-top:10px;">
-              <div style="text-align:center; width:35%;">
-                <img src="\${home.team.logo}" style="width:36px; height:36px; object-fit:contain;" onerror="this.style.display='none'">
-                <div style="font-weight:bold; font-size:0.85rem; margin-top:4px;">\${home.team.shortDisplayName || home.team.name}</div>
-              </div>
-              <div style="font-size:1.6rem; font-weight:bold; color:#fff;">\${home.score !== undefined ? home.score : '-'} - \${away.score !== undefined ? away.score : '-'}</div>
-              <div style="text-align:center; width:35%;">
-                <img src="\${away.team.logo}" style="width:36px; height:36px; object-fit:contain;" onerror="this.style.display='none'">
-                <div style="font-weight:bold; font-size:0.85rem; margin-top:4px;">\${away.team.shortDisplayName || away.team.name}</div>
-              </div>
-            </div>
-          </div>
-        \`;
-
-        // Generación de Mapa de Calor de Presión y Dominio
-        let valPosesionHome = 50;
-        let valPosesionAway = 50;
-
-        if (boxscore && Array.isArray(boxscore.teams) && boxscore.teams.length >= 2) {
-          const statsHome = boxscore.teams[0].statistics || [];
-          const posStat = statsHome.find(s => s.name === 'possessionPct' || s.label === 'Posesión');
-          if (posStat) {
-            valPosesionHome = parseFloat(posStat.displayValue) || 50;
-            valPosesionAway = 100 - valPosesionHome;
-          }
-        }
-
-        htmlStats += \`
-          <h4 style="color:#00ff88; margin: 15px 0 5px 0; font-size:0.85rem;">🔥 Mapa de Calor de Dominio</h4>
-          <div class="pitch-container">
-            <div class="pitch-line-center"></div>
-            <div class="pitch-circle"></div>
-            <div class="pitch-box-top"></div>
-            <div class="pitch-box-bottom"></div>
-            
-            <!-- Zona de Calor Equipo Local (Verde) -->
-            <div class="heat-zone heat-home" style="width:\${valPosesionHome * 1.8}px; height:\${valPosesionHome * 1.8}px; top:15%; left:\${Math.max(10, valPosesionHome - 20)}%;"></div>
-            
-            <!-- Zona de Calor Equipo Visitante (Rojo) -->
-            <div class="heat-zone heat-away" style="width:\${valPosesionAway * 1.8}px; height:\${valPosesionAway * 1.8}px; bottom:15%; right:\${Math.max(10, valPosesionAway - 20)}%;"></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#aaa; margin-bottom:15px;">
-            <span style="color:#00ff88;">🟢 Zona Local (\${valPosesionHome}%)</span>
-            <span style="color:#ff0055;">🔴 Zona Visitante (\${valPosesionAway}%)</span>
-          </div>
-        \`;
-
-        // Métricas numéricas
-        if (boxscore && Array.isArray(boxscore.teams) && boxscore.teams.length >= 2) {
-          const statsHome = boxscore.teams[0].statistics || [];
-          const statsAway = boxscore.teams[1].statistics || [];
-
-          if (statsHome.length > 0) {
-            htmlStats += '<h4 style="color:#00ff88; margin: 15px 0 10px 0; border-bottom:1px solid #2f2f35; padding-bottom:5px; font-size:0.85rem;">📊 Métricas del Partido</h4>';
-
-            statsHome.forEach((st, idx) => {
-              const valHome = st.displayValue || '0';
-              const valAway = statsAway[idx] ? statsAway[idx].displayValue : '0';
-
-              htmlStats += \`
-                <div class="stat-row">
-                  <strong style="color:#00ff88;">\${valHome}</strong>
-                  <span style="color:#aaa; font-size:0.8rem;">\${st.label}</span>
-                  <strong style="color:#ff0055;">\${valAway}</strong>
-                </div>
-              \`;
-            });
-          }
-        }
-
-        modalBody.innerHTML = htmlStats;
+        globalMatchData = await res.json();
+        
+        renderTabGeneral();
+        renderTabLineups();
       } catch (err) {
-        modalBody.innerHTML = '<p style="text-align:center; color:#aaa; padding:20px 0;">No se pudo cargar la vista táctica de este encuentro.</p>';
+        document.getElementById('modal-body-general').innerHTML = '<p style="text-align:center; color:#aaa;">Detalles no disponibles.</p>';
       }
     }
 
-    function cerrarModal(event) {
-      if (event.target.id === 'stats-modal') cerrarModalDirecto();
+    function renderTabGeneral() {
+      const boxscore = globalMatchData?.boxscore;
+      const header = globalMatchData?.header;
+      const comp = header?.competitions?.[0];
+      if (!comp) return;
+
+      const home = comp.competitors.find(c => c.homeAway === 'home');
+      const away = comp.competitors.find(c => c.homeAway === 'away');
+
+      let valPosHome = 50;
+      if (boxscore?.teams?.[0]?.statistics) {
+        const pos = boxscore.teams[0].statistics.find(s => s.name === 'possessionPct');
+        if (pos) valPosHome = parseFloat(pos.displayValue) || 50;
+      }
+      let valPosAway = 100 - valPosHome;
+
+      let html = \`
+        <div style="text-align:center; margin-bottom:15px;">
+          <h3 style="margin:0; font-size:0.95rem; color:#00ff88;">\${header.league?.name || 'Partido'}</h3>
+          <div style="display:flex; justify-content:space-around; align-items:center; margin-top:8px;">
+            <div style="width:35%; font-weight:bold;">\${home.team.shortDisplayName || home.team.name}</div>
+            <div style="font-size:1.5rem; font-weight:bold;">\${home.score ?? '-'} - \${away.score ?? '-'}</div>
+            <div style="width:35%; font-weight:bold;">\${away.team.shortDisplayName || away.team.name}</div>
+          </div>
+        </div>
+
+        <h4 style="color:#00ff88; margin:10px 0 5px 0; font-size:0.85rem;">🔥 Mapa de Calor (Dominio)</h4>
+        <div style="position:relative; width:100%; height:140px; background:#1b381e; border:1px solid #2e5c33; border-radius:8px; overflow:hidden;">
+          <div style="position:absolute; width:100%; height:1px; background:rgba(255,255,255,0.2); top:50%;"></div>
+          <div style="position:absolute; width:50px; height:50px; border:1px solid rgba(255,255,255,0.2); border-radius:50%; top:calc(50% - 25px); left:calc(50% - 25px);"></div>
+          <div style="position:absolute; width:\${valPosHome * 1.5}px; height:\${valPosHome * 1.5}px; background:radial-gradient(circle, rgba(0,255,136,0.8) 0%, transparent 70%); top:10%; left:15%; filter:blur(10px);"></div>
+          <div style="position:absolute; width:\${valPosAway * 1.5}px; height:\${valPosAway * 1.5}px; background:radial-gradient(circle, rgba(255,0,85,0.8) 0%, transparent 70%); bottom:10%; right:15%; filter:blur(10px);"></div>
+        </div>
+      \`;
+
+      if (boxscore?.teams?.[0]?.statistics) {
+        html += '<h4 style="color:#00ff88; margin:15px 0 8px 0; font-size:0.85rem;">📊 Estadísticas</h4>';
+        boxscore.teams[0].statistics.forEach((st, idx) => {
+          const valA = boxscore.teams[1]?.statistics?.[idx]?.displayValue || '0';
+          html += \`
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding:4px 0; border-bottom:1px solid #26262c;">
+              <strong style="color:#00ff88;">\${st.displayValue}</strong>
+              <span style="color:#aaa;">\${st.label}</span>
+              <strong style="color:#ff0055;">\${valA}</strong>
+            </div>
+          \`;
+        });
+      }
+      document.getElementById('modal-body-general').innerHTML = html;
+    }
+
+    function renderTabLineups() {
+      const rosters = globalMatchData?.rosters;
+      if (!rosters || rosters.length < 2) {
+        document.getElementById('modal-body-lineups').innerHTML = \`
+          <div style="text-align:center; padding:30px 10px; color:#aaa;">
+            <p style="color:#ffcc00; font-weight:bold;">⏳ Formaciones Aún No Confirmadas</p>
+            <p style="font-size:0.8rem;">Las alineaciones oficiales y el parado táctico en cancha se publican automáticamente 45 minutos antes del comienzo del partido.</p>
+          </div>
+        \`;
+        return;
+      }
+
+      const homeRoster = rosters[0];
+      const awayRoster = rosters[1];
+
+      let html = \`
+        <div style="text-align:center; font-size:0.8rem; color:#aaa; margin-bottom:8px;">
+          <span>\${homeRoster.formation || '4-3-3'} vs \${awayRoster.formation || '4-3-3'}</span>
+        </div>
+        <div class="pitch">
+          <div class="pitch-line-center"></div>
+          <div class="pitch-circle"></div>
+          
+          <!-- LADO LOCAL (VERDE) -->
+          <div class="team-pitch-half">
+            \${generarCanchaJugadores(homeRoster.roster, true)}
+          </div>
+          
+          <!-- LADO VISITANTE (ROJO) -->
+          <div class="team-pitch-half" style="transform: rotate(180deg);">
+            \${generarCanchaJugadores(awayRoster.roster, false)}
+          </div>
+        </div>
+        <p style="text-align:center; font-size:0.7rem; color:#00ff88; margin-top:4px;">💡 Tocá un jugador para ver sus estadísticas individuales</p>
+      \`;
+
+      document.getElementById('modal-body-lineups').innerHTML = html;
+    }
+
+    function generarCanchaJugadores(rosterList, isHome) {
+      if (!rosterList) return '';
+      const starters = rosterList.filter(p => p.starter).slice(0, 11);
+      
+      // Agrupar titulares en lineas simples (Arquero, Defensores, Mediocampistas, Delanteros)
+      const lineas = [ [], [], [], [] ];
+      starters.forEach((p, idx) => {
+        if (idx === 0) lineas[0].push(p);
+        else if (idx <= 4) lineas[1].push(p);
+        else if (idx <= 8) lineas[2].push(p);
+        else lineas[3].push(p);
+      });
+
+      return lineas.map(row => \`
+        <div class="tactical-row">
+          \${row.map(p => {
+            const ath = p.athlete || {};
+            const num = ath.jersey || '?';
+            const name = ath.shortName || ath.displayName || 'Jugador';
+            
+            // Tarjetas
+            let cardHtml = '';
+            if (p.yellowCards) cardHtml = '<div class="card-badge card-yellow"></div>';
+            if (p.redCards) cardHtml = '<div class="card-badge card-red"></div>';
+
+            return \`
+              <div class="player-node \${isHome ? '' : 'player-away'}" onclick="verPlayerStats('\${ath.id}', '\${name}', '\${num}', \${JSON.stringify(p.stats || []).replace(/"/g, '&quot;')})">
+                <div class="player-shirt">\${num}\${cardHtml}</div>
+                <div class="player-name" style="\${isHome ? '' : 'transform: rotate(180deg);'}">\${name}</div>
+              </div>
+            \`;
+          }).join('')}
+        </div>
+      \`).join('');
+    }
+
+    function verPlayerStats(id, name, jersey, stats) {
+      const card = document.getElementById('player-card');
+      const content = document.getElementById('player-card-content');
+      
+      let statsListHtml = '<p style="color:#aaa; font-size:0.8rem;">Sin datos registrados aún en el partido.</p>';
+      if (stats && stats.length > 0) {
+        statsListHtml = \`
+          <div class="stat-grid">
+            \${stats.map(s => \`
+              <div class="stat-item">
+                <div style="color:#aaa; font-size:0.7rem;">\${s.label || s.name}</div>
+                <div style="color:#00ff88; font-weight:bold; font-size:0.95rem;">\${s.value || s.displayValue || '0'}</div>
+              </div>
+            \`).join('')}
+          </div>
+        \`;
+      }
+
+      content.innerHTML = \`
+        <div class="player-card-header">
+          <div style="width:30px; height:30px; border-radius:50%; background:#00ff88; color:#000; font-weight:bold; display:flex; align-items:center; justify-content:center;">\${jersey}</div>
+          <div>
+            <h4 style="margin:0; font-size:0.95rem; color:#fff;">\${name}</h4>
+            <span style="font-size:0.75rem; color:#00ff88;">Rendimiento en vivo</span>
+          </div>
+        </div>
+        \${statsListHtml}
+      \`;
+
+      card.style.display = 'block';
+    }
+
+    function cerrarPlayerCard() {
+      document.getElementById('player-card').style.display = 'none';
+    }
+
+    function cambiarTab(tab) {
+      document.getElementById('tab-general-btn').classList.toggle('active', tab === 'general');
+      document.getElementById('tab-lineups-btn').classList.toggle('active', tab === 'lineups');
+      document.getElementById('modal-body-general').style.display = tab === 'general' ? 'block' : 'none';
+      document.getElementById('modal-body-lineups').style.display = tab === 'lineups' ? 'block' : 'none';
+      cerrarPlayerCard();
+    }
+
+    function cerrarModal(e) {
+      if (e.target.id === 'stats-modal') cerrarModalDirecto();
     }
 
     function cerrarModalDirecto() {
       document.getElementById('stats-modal').style.display = 'none';
+      cerrarPlayerCard();
     }
 
     cargarAgendaDirecta();
