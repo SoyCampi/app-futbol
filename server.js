@@ -8,7 +8,7 @@ app.get('*', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agenda de Partidos y Estadísticas</title>
+  <title>Agenda & Estadísticas de Partidos</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0e0e10; color: #efeff1; margin: 0; padding: 15px; }
@@ -19,8 +19,9 @@ app.get('*', (req, res) => {
     .pulse { width: 10px; height: 10px; background: #00ff88; border-radius: 50%; display: inline-block; animation: blink 1.5s infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     
-    .match-card { background: #18181b; padding: 16px; border-radius: 14px; margin-bottom: 14px; border: 1px solid #26262c; }
-    .league-title { font-size: 0.75rem; color: #00ff88; text-transform: uppercase; margin-bottom: 12px; font-weight: 700; letter-spacing: 0.5px; }
+    .match-card { background: #18181b; padding: 16px; border-radius: 14px; margin-bottom: 12px; border: 1px solid #26262c; cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease; }
+    .match-card:hover { border-color: #00ff88; transform: translateY(-2px); }
+    .league-title { font-size: 0.72rem; color: #00ff88; text-transform: uppercase; margin-bottom: 10px; font-weight: 700; letter-spacing: 0.5px; display: flex; justify-content: space-between; }
     
     .teams-container { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .team-box { display: flex; align-items: center; gap: 8px; width: 40%; }
@@ -35,11 +36,20 @@ app.get('*', (req, res) => {
     .time-badge { color: #ffcc00; font-weight: bold; }
     .live-badge { color: #ff0055; font-weight: bold; background: rgba(255,0,85,0.15); padding: 3px 8px; border-radius: 6px; }
     .finished-badge { color: #adadb8; font-weight: bold; }
+    .click-hint { font-size: 0.7rem; color: #00ff88; font-weight: 600; }
 
-    /* Panel de estadísticas en vivo */
-    .stats-box { margin-top: 12px; background: #0e0e10; padding: 10px; border-radius: 8px; font-size: 0.78rem; border: 1px solid #2f2f35; color: #adadb8; }
-    .stats-title { font-weight: bold; color: #00ff88; margin-bottom: 6px; text-transform: uppercase; font-size: 0.7rem; }
-    .stats-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    /* Modal / Pop-up de Estadísticas */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: flex-end; }
+    .modal-content { background: #18181b; width: 100%; max-width: 480px; max-height: 85vh; border-radius: 20px 20px 0 0; padding: 20px; overflow-y: auto; border-top: 2px solid #00ff88; box-shadow: 0 -5px 25px rgba(0,0,0,0.5); position: relative; animation: slideUp 0.25s ease-out; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    
+    .close-btn { position: absolute; top: 15px; right: 20px; background: #2f2f35; color: #fff; border: none; width: 30px; height: 30px; border-radius: 50%; font-weight: bold; cursor: pointer; }
+    .modal-header { text-align: center; margin-bottom: 20px; }
+    
+    .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; font-size: 0.85rem; border-bottom: 1px solid #26262c; padding-bottom: 6px; }
+    .stat-bar-container { width: 100%; background: #2f2f35; height: 6px; border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px; }
+    .stat-bar-home { background: #00ff88; height: 100%; }
+    .stat-bar-away { background: #ff0055; height: 100%; }
   </style>
 </head>
 <body>
@@ -48,7 +58,15 @@ app.get('*', (req, res) => {
       <h2><span class="pulse"></span> Agenda Real de Hoy</h2>
       <div id="fecha-hoy" class="date-badge">Cargando fecha...</div>
     </div>
-    <div id="matches-container">Consultando agenda directa...</div>
+    <div id="matches-container">Consultando partidos...</div>
+  </div>
+
+  <!-- Contenedor Modal de Estadísticas -->
+  <div id="stats-modal" class="modal-overlay" onclick="cerrarModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="close-btn" onclick="cerrarModalDirecto()">✕</button>
+      <div id="modal-body">Cargando estadísticas en tiempo real...</div>
+    </div>
   </div>
 
   <script>
@@ -62,9 +80,7 @@ app.get('*', (req, res) => {
           minute: '2-digit',
           hour12: false
         });
-      } catch (e) {
-        return 'A confirmar';
-      }
+      } catch (e) { return 'A confirmar'; }
     }
 
     async function cargarAgendaDirecta() {
@@ -109,12 +125,6 @@ app.get('*', (req, res) => {
               const enVivo = statusState === 'in';
               const finalizado = statusState === 'post';
 
-              // Extraer estadisticas en vivo si existen
-              let estadisticas = null;
-              if (enVivo && comp.headlines && comp.headlines[0]) {
-                estadisticas = comp.headlines[0].description || comp.headlines[0].shortLinkText;
-              }
-
               partidosMap.set(item.id, {
                 id: item.id,
                 liga: (json.leagues && json.leagues[0]) ? json.leagues[0].name : nombreLiga,
@@ -128,9 +138,7 @@ app.get('*', (req, res) => {
                 enVivo: enVivo,
                 finalizado: finalizado,
                 minuto: (item.status && item.status.displayClock) ? item.status.displayClock + "'" : null,
-                estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado'),
-                resumenStats: estadisticas,
-                detallesComp: comp.status ? comp.status.type.detail : ''
+                estadoText: enVivo ? 'En juego' : (finalizado ? 'Finalizado' : 'Programado')
               });
             });
           }
@@ -141,14 +149,14 @@ app.get('*', (req, res) => {
 
         renderizarAgenda(partidos);
       } catch (err) {
-        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#adadb8; padding: 20px 0;">Error de conexión. Reintentando...</p>';
+        document.getElementById('matches-container').innerHTML = '<p style="text-align:center; color:#adadb8;">Actualizando conexión...</p>';
       }
     }
 
     function renderizarAgenda(partidos) {
       const container = document.getElementById('matches-container');
       if (!partidos || partidos.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#adadb8; padding: 30px 0;">No hay encuentros agendados en las ligas monitoreadas para la jornada de hoy.</p>';
+        container.innerHTML = '<p style="text-align:center; color:#adadb8; padding: 30px 0;">No hay encuentros agendados hoy.</p>';
         return;
       }
 
@@ -160,20 +168,12 @@ app.get('*', (req, res) => {
           badgeEstado = \`<span class="finished-badge">FINALIZADO</span>\`;
         }
 
-        let panelStats = '';
-        if (p.enVivo) {
-          panelStats = \`
-            <div class="stats-box">
-              <div class="stats-title">📊 Estado del Partido en Vivo</div>
-              <div class="stats-row"><span>Estado:</span> <strong>\${p.detallesComp || 'En disputa'}</strong></div>
-              \${p.resumenStats ? \`<div class="stats-row"><span>Incidencias:</span> <strong>\${p.resumenStats}</strong></div>\` : ''}
-            </div>
-          \`;
-        }
-
         return \`
-          <div class="match-card">
-            <div class="league-title">\${p.liga}</div>
+          <div class="match-card" onclick="abrirEstadisticas('\${p.id}')">
+            <div class="league-title">
+              <span>\${p.liga}</span>
+              <span class="click-hint">Ver stats 📊</span>
+            </div>
             <div class="teams-container">
               <div class="team-box team-left">
                 <img src="\${p.logoLocal}" class="club-logo" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png'">
@@ -185,7 +185,6 @@ app.get('*', (req, res) => {
                 <img src="\${p.logoVisitante}" class="club-logo" alt="" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png'">
               </div>
             </div>
-            \${panelStats}
             <div class="status-container">
               \${badgeEstado}
               <span style="color: #888;">\${p.estadoText}</span>
@@ -193,6 +192,85 @@ app.get('*', (req, res) => {
           </div>
         \`;
       }).join('');
+    }
+
+    // Cargar Estadísticas Detalladas al hacer clic en un partido
+    async function abrirEstadisticas(matchId) {
+      const modal = document.getElementById('stats-modal');
+      const modalBody = document.getElementById('modal-body');
+      modal.style.display = 'flex';
+      modalBody.innerHTML = '<p style="text-align:center; color:#00ff88; padding: 20px 0;">Cargando estadísticas e incidencias...</p>';
+
+      try {
+        const res = await fetch(\`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=\${matchId}\`);
+        const json = await res.json();
+
+        const boxscore = json.boxscore;
+        const header = json.header;
+        const comp = header && header.competitions ? header.competitions[0] : null;
+
+        if (!comp) {
+          modalBody.innerHTML = '<p style="text-align:center; color:#aaa;">Estadísticas detalladas aún no disponibles para este partido.</p>';
+          return;
+        }
+
+        const home = comp.competitors.find(c => c.homeAway === 'home');
+        const away = comp.competitors.find(c => c.homeAway === 'away');
+
+        let htmlStats = \`
+          <div class="modal-header">
+            <h3 style="margin:0 0 10px 0; font-size:1.1rem; color:#00ff88;">\${header.league ? header.league.name : 'Estadísticas del Encuentro'}</h3>
+            <div style="display:flex; justify-content:space-around; align-items:center; margin-top:10px;">
+              <div style="text-align:center;">
+                <img src="\${home.team.logo}" style="width:40px; height:40px;" onerror="this.style.display='none'">
+                <div style="font-weight:bold; font-size:0.9rem; margin-top:4px;">\${home.team.shortDisplayName || home.team.name}</div>
+              </div>
+              <div style="font-size:1.8rem; font-weight:bold; color:#fff;">\${home.score || '0'} - \${away.score || '0'}</div>
+              <div style="text-align:center;">
+                <img src="\${away.team.logo}" style="width:40px; height:40px;" onerror="this.style.display='none'">
+                <div style="font-weight:bold; font-size:0.9rem; margin-top:4px;">\${away.team.shortDisplayName || away.team.name}</div>
+              </div>
+            </div>
+          </div>
+        \`;
+
+        // Renderizar Métricas si están disponibles
+        if (boxscore && boxscore.teams) {
+          const statsHome = boxscore.teams[0].statistics || [];
+          const statsAway = boxscore.teams[1].statistics || [];
+
+          htmlStats += '<h4 style="color:#00ff88; margin: 15px 0 10px 0; border-bottom:1px solid #2f2f35; padding-bottom:5px;">📊 Estadísticas Generales</h4>';
+
+          statsHome.forEach((st, idx) => {
+            const valHome = st.displayValue || '0';
+            const valAway = statsAway[idx] ? statsAway[idx].displayValue : '0';
+
+            htmlStats += \`
+              <div style="margin-bottom: 12px;">
+                <div class="stat-row" style="border:none; margin:0; padding:0;">
+                  <strong style="color:#00ff88;">\${valHome}</strong>
+                  <span style="color:#aaa;">\${st.label}</span>
+                  <strong style="color:#ff0055;">\${valAway}</strong>
+                </div>
+              </div>
+            \`;
+          });
+        } else {
+          htmlStats += '<p style="text-align:center; color:#aaa; font-size:0.85rem; padding:15px 0;">Las métricas de tiros y posesión estarán disponibles una vez iniciado el juego.</p>';
+        }
+
+        modalBody.innerHTML = htmlStats;
+      } catch (err) {
+        modalBody.innerHTML = '<p style="text-align:center; color:#aaa;">No se pudieron cargar las estadísticas completas en este momento.</p>';
+      }
+    }
+
+    function cerrarModal(event) {
+      if (event.target.id === 'stats-modal') cerrarModalDirecto();
+    }
+
+    function cerrarModalDirecto() {
+      document.getElementById('stats-modal').style.display = 'none';
     }
 
     cargarAgendaDirecta();
