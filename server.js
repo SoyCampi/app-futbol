@@ -3,6 +3,7 @@ const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Helper para peticiones HTTPS seguras
 function fetchESPN(url) {
   return new Promise((resolve) => {
     const req = https.get(url, {
@@ -17,61 +18,24 @@ function fetchESPN(url) {
       });
     });
     req.on('error', () => resolve(null));
-    req.setTimeout(4000, () => { req.destroy(); resolve(null); });
+    req.setTimeout(5000, () => { req.destroy(); resolve(null); });
   });
 }
 
-// Datos de respaldo cuando ESPN no tiene partidos hoy
-const FALLBACK_MATCHES = [
-  {
-    id: 'demo1',
-    liga: 'Liga Profesional Argentina',
-    leagueSlug: 'arg.1',
-    local: 'Boca Juniors',
-    logoLocal: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/1.png',
-    golesLocal: '2',
-    visitante: 'River Plate',
-    logoVisitante: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/18.png',
-    golesVisitante: '1',
-    estado: 'FINAL',
-    displayClock: 90,
-    enVivo: false
-  },
-  {
-    id: 'demo2',
-    liga: 'LaLiga España',
-    leagueSlug: 'esp.1',
-    local: 'Real Madrid',
-    logoLocal: 'https://a.espncdn.com/i/teamlogos/soccer/500/86.png',
-    golesLocal: '3',
-    visitante: 'Barcelona',
-    logoVisitante: 'https://a.espncdn.com/i/teamlogos/soccer/500/83.png',
-    golesVisitante: '1',
-    estado: 'FINAL',
-    displayClock: 90,
-    enVivo: false
-  }
-];
-
-const FALLBACK_STANDINGS = [
-  { pos: 1, nombre: 'River Plate', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/18.png', pj: 14, g: 9, e: 4, p: 1, dg: 15, pts: 31 },
-  { pos: 2, nombre: 'Boca Juniors', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/1.png', pj: 14, g: 8, e: 3, p: 3, dg: 10, pts: 27 },
-  { pos: 3, nombre: 'Racing Club', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/16.png', pj: 14, g: 7, e: 4, p: 3, dg: 8, pts: 25 },
-  { pos: 4, nombre: 'Independiente', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/10.png', pj: 14, g: 6, e: 5, p: 3, dg: 4, pts: 23 },
-  { pos: 5, nombre: 'San Lorenzo', logo: 'https://a.espncdn.com/i/teamlogos/soccer/500/3/19.png', pj: 14, g: 5, e: 6, p: 3, dg: 2, pts: 21 }
-];
-
+// 1. ENDPOINT API REAL
 app.get('/api/google-widget', async (req, res) => {
   const leagues = [
     { slug: 'arg.1', name: 'Liga Profesional Argentina' },
     { slug: 'esp.1', name: 'LaLiga España' },
+    { slug: 'eng.1', name: 'Premier League' },
     { slug: 'uefa.champions', name: 'UEFA Champions League' },
-    { slug: 'eng.1', name: 'Premier League' }
+    { slug: 'conmebol.libertadores', name: 'Copa Libertadores' }
   ];
 
   try {
     let allEvents = [];
 
+    // Consultar agenda del día en las ligas
     for (const l of leagues) {
       const data = await fetchESPN(`https://site.api.espn.com/apis/site/v2/sports/soccer/${l.slug}/scoreboard`);
       if (data && data.events && data.events.length > 0) {
@@ -84,7 +48,7 @@ app.get('/api/google-widget', async (req, res) => {
       }
     }
 
-    let agenda = allEvents.map(e => {
+    const agenda = allEvents.map(e => {
       const comp = e.competitions?.[0];
       const home = comp?.competitors?.find(c => c.homeAway === 'home');
       const away = comp?.competitors?.find(c => c.homeAway === 'away');
@@ -118,14 +82,9 @@ app.get('/api/google-widget', async (req, res) => {
       };
     });
 
-    // Si la API no devolvió partidos hoy, usar Fallback
-    if (agenda.length === 0) {
-      agenda = FALLBACK_MATCHES;
-    }
+    const mainEvent = agenda.find(a => a.enVivo) || agenda[0] || null;
 
-    const mainEvent = agenda.find(a => a.enVivo) || agenda[0];
-
-    // Intentar traer tabla de posiciones real
+    // Tabla de Posiciones Real (Liga Argentina por defecto si no hay partido activo)
     let standings = [];
     const targetSlug = mainEvent ? mainEvent.leagueSlug : 'arg.1';
     const resStandings = await fetchESPN(`https://site.api.espn.com/apis/v2/sports/soccer/${targetSlug}/standings`);
@@ -148,34 +107,21 @@ app.get('/api/google-widget', async (req, res) => {
       });
     }
 
-    // Si las posiciones fallan o no hay datos, usar Fallback
-    if (standings.length === 0) {
-      standings = FALLBACK_STANDINGS;
-    }
-
     res.json({ agenda, mainMatch: mainEvent, standings });
   } catch (err) {
-    res.json({ agenda: FALLBACK_MATCHES, mainMatch: FALLBACK_MATCHES[0], standings: FALLBACK_STANDINGS });
+    res.json({ agenda: [], mainMatch: null, standings: [] });
   }
 });
 
+// Resumen / Estadísticas reales del partido
 app.get('/api/match-summary', async (req, res) => {
   const { league, event } = req.query;
-  if (!league || !event || event.startsWith('demo')) {
-    return res.json({
-      boxscore: {
-        teams: [
-          { statistics: [{ name: 'possessionPct', displayValue: '55' }, { name: 'shotsOnTarget', displayValue: '6' }, { name: 'totalShots', displayValue: '12' }] },
-          { statistics: [{ name: 'possessionPct', displayValue: '45' }, { name: 'shotsOnTarget', displayValue: '4' }, { name: 'totalShots', displayValue: '9' }] }
-        ]
-      }
-    });
-  }
+  if (!league || !event) return res.json(null);
   const data = await fetchESPN(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/summary?event=${event}`);
   res.json(data);
 });
 
-// HTML Frontend
+// 2. FRONTEND HTML
 app.get('*', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="es">
@@ -206,8 +152,7 @@ app.get('*', (req, res) => {
     .score-num { font-size: 2.8rem; font-weight: 500; }
     .timer-txt { font-size: 1rem; font-weight: 700; color: #1e8e3e; }
     .tabs-bar { display: flex; border-bottom: 1px solid #dadce0; margin-bottom: 16px; }
-    .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 0.85rem; font-weight: 600; color: #5f6368; cursor: pointer; }
-    .tab-btn.active { color: #1a73e8; border-bottom: 2px solid #1a73e8; }
+    .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 0.85rem; font-weight: 600; color: #1a73e8; border-bottom: 2px solid #1a73e8; }
     .stat-row { margin-bottom: 12px; }
     .stat-labels { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
     .stat-bar-bg { background: #f1f3f4; height: 8px; border-radius: 4px; display: flex; overflow: hidden; }
@@ -220,6 +165,7 @@ app.get('*', (req, res) => {
     td { padding: 8px 6px; text-align: center; border-top: 1px solid #f1f3f4; }
     td.align-left { text-align: left; font-weight: 500; display: flex; align-items: center; gap: 6px; }
     .mini-logo { width: 16px; height: 16px; object-fit: contain; }
+    .no-match-box { text-align: center; padding: 20px; color: #5f6368; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -232,15 +178,15 @@ app.get('*', (req, res) => {
       <div class="agenda-dropdown" id="dropdown-agenda"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="match-card">
       <div class="league-header">
-        <span class="league-name" id="lbl-liga">Cargando...</span>
+        <span class="league-name" id="lbl-liga">Agenda del Día</span>
         <span id="badge-vivo" class="live-badge" style="display:none;">EN VIVO</span>
       </div>
 
-      <div class="match-score-board">
+      <div class="match-score-board" id="board-container">
         <div class="team-col">
-          <img id="img-home" class="team-logo-lg" src="" alt="">
+          <img id="img-home" class="team-logo-lg" src="" onerror="this.onerror=null;this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png';" alt="">
           <span id="txt-home" class="team-title">--</span>
         </div>
         <div class="score-center">
@@ -249,13 +195,13 @@ app.get('*', (req, res) => {
           <span id="num-goles-away" class="score-num">-</span>
         </div>
         <div class="team-col">
-          <img id="img-away" class="team-logo-lg" src="" alt="">
+          <img id="img-away" class="team-logo-lg" src="" onerror="this.onerror=null;this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png';" alt="">
           <span id="txt-away" class="team-title">--</span>
         </div>
       </div>
 
       <div class="tabs-bar">
-        <button class="tab-btn active">Estadísticas</button>
+        <button class="tab-btn">Estadísticas</button>
       </div>
 
       <div id="stats-container"></div>
@@ -286,34 +232,46 @@ app.get('*', (req, res) => {
     }
 
     async function loadWidgetData() {
-      const res = await fetch('/api/google-widget');
-      const data = await res.json();
-      
-      agendaMatches = data.agenda || [];
-      document.getElementById('count-agenda').innerText = agendaMatches.length;
+      try {
+        const res = await fetch('/api/google-widget');
+        const data = await res.json();
+        
+        agendaMatches = data.agenda || [];
+        document.getElementById('count-agenda').innerText = agendaMatches.length;
 
-      const container = document.getElementById('dropdown-agenda');
-      container.innerHTML = agendaMatches.map(item => \`
-        <div class="agenda-item" onclick="selectMatch('\${item.id}')">
-          <div class="agenda-teams-col">
-            <div class="agenda-team-row"><img src="\${item.logoLocal}" class="agenda-logo"> \${item.local} <strong>\${item.golesLocal}</strong></div>
-            <div class="agenda-team-row"><img src="\${item.logoVisitante}" class="agenda-logo"> \${item.visitante} <strong>\${item.golesVisitante}</strong></div>
-          </div>
-          <div class="agenda-status-col">\${item.estado}</div>
-        </div>
-      \`).join('');
+        const dropdown = document.getElementById('dropdown-agenda');
 
-      if (data.mainMatch) selectMatch(data.mainMatch.id);
+        if (agendaMatches.length === 0) {
+          document.getElementById('lbl-liga').innerText = 'Sin Partidos Hoy';
+          document.getElementById('board-container').innerHTML = '<div class="no-match-box">No hay partidos programados en las ligas seguidas para la fecha de hoy.</div>';
+          document.getElementById('stats-container').innerHTML = '';
+        } else {
+          dropdown.innerHTML = agendaMatches.map(item => \`
+            <div class="agenda-item" onclick="selectMatch('\${item.id}')">
+              <div class="agenda-teams-col">
+                <div class="agenda-team-row"><img src="\${item.logoLocal}" class="agenda-logo" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png';"> \${item.local} <strong>\${item.golesLocal}</strong></div>
+                <div class="agenda-team-row"><img src="\${item.logoVisitante}" class="agenda-logo" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png';"> \${item.visitante} <strong>\${item.golesVisitante}</strong></div>
+              </div>
+              <div class="agenda-status-col">\${item.estado}</div>
+            </div>
+          \`).join('');
 
-      const tbody = document.getElementById('tbody-posiciones');
-      if (data.standings && data.standings.length) {
-        tbody.innerHTML = data.standings.map(s => \`
-          <tr>
-            <td style="color:#70757a;">\${s.pos}</td>
-            <td class="align-left"><img src="\${s.logo}" class="mini-logo"> \${s.nombre}</td>
-            <td>\${s.pj}</td><td>\${s.g}</td><td>\${s.e}</td><td>\${s.p}</td><td>\${s.dg}</td><td><strong>\${s.pts}</strong></td>
-          </tr>
-        \`).join('');
+          if (data.mainMatch) selectMatch(data.mainMatch.id);
+        }
+
+        // Cargar Tabla de Posiciones Real
+        const tbody = document.getElementById('tbody-posiciones');
+        if (data.standings && data.standings.length) {
+          tbody.innerHTML = data.standings.map(s => \`
+            <tr>
+              <td style="color:#70757a;">\${s.pos}</td>
+              <td class="align-left"><img src="\${s.logo}" class="mini-logo" onerror="this.src='https://a.espncdn.com/i/teamlogos/default-team-logo.png';"> \${s.nombre}</td>
+              <td>\${s.pj}</td><td>\${s.g}</td><td>\${s.e}</td><td>\${s.p}</td><td>\${s.dg}</td><td><strong>\${s.pts}</strong></td>
+            </tr>
+          \`).join('');
+        }
+      } catch (err) {
+        console.error("Error al cargar la API:", err);
       }
     }
 
@@ -332,28 +290,34 @@ app.get('*', (req, res) => {
       document.getElementById('num-goles-away').innerText = activeMatch.golesVisitante;
       document.getElementById('txt-tiempo').innerText = activeMatch.estado.replace('🔴 ', '');
 
-      const sumRes = await fetch(\`/api/match-summary?league=\${activeMatch.leagueSlug}&event=\${activeMatch.id}\`).then(r => r.json());
+      try {
+        const sumRes = await fetch(\`/api/match-summary?league=\${activeMatch.leagueSlug}&event=\${activeMatch.id}\`).then(r => r.json());
 
-      if (sumRes && sumRes.boxscore && sumRes.boxscore.teams) {
-        const homeStats = sumRes.boxscore.teams[0]?.statistics || [];
-        const awayStats = sumRes.boxscore.teams[1]?.statistics || [];
-        const getStat = (stats, name) => stats.find(s => s.name === name || s.label === name)?.displayValue || '0';
+        if (sumRes && sumRes.boxscore && sumRes.boxscore.teams) {
+          const homeStats = sumRes.boxscore.teams[0]?.statistics || [];
+          const awayStats = sumRes.boxscore.teams[1]?.statistics || [];
+          const getStat = (stats, name) => stats.find(s => s.name === name || s.label === name)?.displayValue || '0';
 
-        const statsList = [
-          { label: 'Posesión', home: (getStat(homeStats, 'possessionPct') || '50') + '%', away: (getStat(awayStats, 'possessionPct') || '50') + '%' },
-          { label: 'Tiros al Arco', home: getStat(homeStats, 'shotsOnTarget'), away: getStat(awayStats, 'shotsOnTarget') },
-          { label: 'Tiros Totales', home: getStat(homeStats, 'totalShots'), away: getStat(awayStats, 'totalShots') }
-        ];
+          const statsList = [
+            { label: 'Posesión', home: (getStat(homeStats, 'possessionPct') || '0') + '%', away: (getStat(awayStats, 'possessionPct') || '0') + '%' },
+            { label: 'Tiros al Arco', home: getStat(homeStats, 'shotsOnTarget'), away: getStat(awayStats, 'shotsOnTarget') },
+            { label: 'Tiros Totales', home: getStat(homeStats, 'totalShots'), away: getStat(awayStats, 'totalShots') }
+          ];
 
-        document.getElementById('stats-container').innerHTML = statsList.map(s => \`
-          <div class="stat-row">
-            <div class="stat-labels"><span>\${s.home}</span><span>\${s.label}</span><span>\${s.away}</span></div>
-            <div class="stat-bar-bg">
-              <div class="stat-bar-home" style="width: \${parseInt(s.home) || 50}%"></div>
-              <div class="stat-bar-away" style="width: \${100 - (parseInt(s.home) || 50)}%"></div>
+          document.getElementById('stats-container').innerHTML = statsList.map(s => \`
+            <div class="stat-row">
+              <div class="stat-labels"><span>\${s.home}</span><span>\${s.label}</span><span>\${s.away}</span></div>
+              <div class="stat-bar-bg">
+                <div class="stat-bar-home" style="width: \${parseInt(s.home) || 50}%"></div>
+                <div class="stat-bar-away" style="width: \${100 - (parseInt(s.home) || 50)}%"></div>
+              </div>
             </div>
-          </div>
-        \`).join('');
+          \`).join('');
+        } else {
+          document.getElementById('stats-container').innerHTML = '<div class="no-match-box">Estadísticas no disponibles aún para este evento.</div>';
+        }
+      } catch (e) {
+        document.getElementById('stats-container').innerHTML = '<div class="no-match-box">No se pudieron recuperar las estadísticas.</div>';
       }
     }
 
@@ -363,4 +327,4 @@ app.get('*', (req, res) => {
 </html>`);
 });
 
-app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
